@@ -86,9 +86,15 @@ private:
     bool connected;                 // Updated in callbacks
     bool initial_connect_done;      // True after first connect() call
 
-    // JWT auth state (used by preset JWT slots and custom slots with audience set)
-    // Inline buffer avoids per-reconnect heap alloc/free churn (fragmentation source).
-    char auth_token[AUTH_TOKEN_SIZE]; // empty string = no valid token
+    // JWT auth state (used by preset JWT slots and custom slots with audience set).
+    // nullptr until this slot first creates a token, so a slot that is unconfigured,
+    // capped off, or on a non-JWT preset never pays for AUTH_TOKEN_SIZE. Allocated by
+    // ensureSlotAuthToken() and then held for the client's lifetime -- never freed per
+    // reconnect (alloc/free churn is a fragmentation source) and never freed on
+    // teardown, because setCredentials() hands this exact pointer to the client and
+    // esp-mqtt re-reads it whenever a later connect() re-applies a dirtied config.
+    // Freed only alongside the client in destroySlotClients().
+    char* auth_token;               // nullptr or empty string = no valid token
     unsigned long token_expires_at;
     unsigned long last_token_renewal;
 
@@ -409,6 +415,8 @@ private:
   // This avoids delete/new cycles that shed ~40 KB of mbedTLS buffers per
   // reconfigure and fragment the internal heap on non-PSRAM boards.
   bool ensureSlotClient(int index);    // Allocate this slot's persistent client + callbacks on first use
+  bool ensureSlotAuthToken(int index); // Allocate this slot's JWT token buffer on first token creation
+  void releaseSlotAuthToken(int index);// Free the token buffer (only with the client — see MQTTSlot)
   void destroySlotClients();           // Delete all persistent clients (shutdown only)
   void setupSlot(int index);           // Configure and connect the slot's existing client
   void teardownSlot(int index);        // Disconnect the slot's client (keeps the object alive)
