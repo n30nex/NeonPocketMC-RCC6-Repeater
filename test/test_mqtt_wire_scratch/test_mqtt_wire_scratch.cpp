@@ -60,11 +60,42 @@ TEST(MQTTWireScratch, RejectsPathLenThatWouldTruncateIntoOneWireByte) {
   p.payload_len = 4;
   p.path_len = 0x100;  // writeTo() stores this in a single byte
   EXPECT_FALSE(MQTTWireScratch::canSerialize(p, MQTTWireScratch::kWireBytes));
+}
 
+// The case a destination-size check cannot catch, and which an earlier version of
+// these tests masked by using a payload big enough to push getRawLength() over the
+// limit: 0xFF encodes 63 hops of 4 bytes, so with no payload the counted length is
+// 254 — inside the buffer — while writePath() refuses the 252-byte path and writeTo()
+// emits only the 2-byte header. Publishing that would put 4 hex chars in the `raw`
+// field and call them the packet.
+TEST(MQTTWireScratch, RejectsOverlongPathEvenWhenTheCountedLengthFits) {
+  mesh::Packet p;
+  p.header = ROUTE_TYPE_FLOOD;
   p.path_len = 0xFF;
-  // Still rejected, but now on the destination check rather than truncation:
-  // 0xFF encodes 63 hops of 4 bytes.
-  EXPECT_GT(p.getRawLength(), (int)MQTTWireScratch::kWireBytes);
+  p.payload_len = 0;
+
+  ASSERT_EQ(254, p.getRawLength());
+  ASSERT_LE((size_t)p.getRawLength(), MQTTWireScratch::kWireBytes);
+  uint8_t buf[MQTTWireScratch::kWireBytes];
+  ASSERT_EQ(2, (int)p.writeTo(buf));
+
+  EXPECT_FALSE(MQTTWireScratch::canSerialize(p, MQTTWireScratch::kWireBytes));
+}
+
+// hash_size 4 is reserved: isValidPathLen() and therefore Packet::readFrom() reject
+// it, so serializing one produces a frame no receiver can parse back — even though the
+// hop bytes fit and writePath() copies them happily.
+TEST(MQTTWireScratch, RejectsReservedFourByteHashEncoding) {
+  mesh::Packet p;
+  p.header = ROUTE_TYPE_FLOOD;
+  p.setPathHashSizeAndCount(4, 2);
+  p.payload_len = 4;
+
+  ASSERT_EQ(4, p.getPathHashSize());
+  ASSERT_EQ(8, p.getPathByteLen());          // fits the path array
+  ASSERT_LE(p.getRawLength(), (int)MQTTWireScratch::kWireBytes);
+  ASSERT_FALSE(mesh::Packet::isValidPathLen((uint8_t)p.path_len));
+
   EXPECT_FALSE(MQTTWireScratch::canSerialize(p, MQTTWireScratch::kWireBytes));
 }
 
