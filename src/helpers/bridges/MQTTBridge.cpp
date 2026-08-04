@@ -1676,12 +1676,18 @@ bool MQTTBridge::ensureSlotClient(int index) {
 
 // Allocate this slot's JWT token buffer. Called only from createSlotAuthToken(), the
 // sole writer, so a slot on a non-JWT preset (or no preset at all) never allocates.
-// Internal DRAM, matching where the buffer lived when it was inline in MQTTSlot.
+//
+// PSRAM where the board has it (psram_malloc falls back to internal DRAM otherwise),
+// which is what moves the token off internal heap for slots that DO use JWT. Safe
+// because the only readers are CPU copies on the bridge task: JWTHelper memcpy's the
+// token in here, and esp-mqtt copies it out of _mqtt_cfg into its own internal-DRAM
+// storage when connect() applies the config. No DMA, no ISR, and no cache-disabled
+// window -- unlike the PSRAM task stack that reset Heltec V4 boards.
 bool MQTTBridge::ensureSlotAuthToken(int index) {
   if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return false;
   MQTTSlot& slot = _slots[index];
   slot.auth_token = static_cast<char*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
-      slot.auth_token, AUTH_TOKEN_SIZE, malloc));
+      slot.auth_token, AUTH_TOKEN_SIZE, psram_malloc));
   if (slot.auth_token == nullptr) {
     MQTT_DEBUG_PRINTLN("MQTT%d: out of memory allocating auth token", index + 1);
     return false;
@@ -1697,7 +1703,7 @@ void MQTTBridge::releaseSlotAuthToken(int index) {
   if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return;
   MQTTSlot& slot = _slots[index];
   slot.auth_token = static_cast<char*>(
-      MQTTRuntimeBufferLifecycle::release(slot.auth_token, free));
+      MQTTRuntimeBufferLifecycle::release(slot.auth_token, psram_free));
   slot.token_expires_at = 0;
   slot.last_token_renewal = 0;
 }

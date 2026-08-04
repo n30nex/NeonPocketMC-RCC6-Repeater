@@ -88,7 +88,8 @@ private:
 
     // JWT auth state (used by preset JWT slots and custom slots with audience set).
     // nullptr until this slot first creates a token, so a slot that is unconfigured,
-    // capped off, or on a non-JWT preset never pays for AUTH_TOKEN_SIZE. Allocated by
+    // capped off, or on a non-JWT preset never pays for AUTH_TOKEN_SIZE; slots that do
+    // use JWT keep their buffer in PSRAM where the board has it. Allocated by
     // ensureSlotAuthToken() and then held for the client's lifetime -- never freed per
     // reconnect (alloc/free churn is a fragmentation source) and never freed on
     // teardown, because setCredentials() hands this exact pointer to the client and
