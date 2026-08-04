@@ -177,6 +177,37 @@ static void psram_free(void* ptr) {
 #endif
 }
 
+static void* psram_realloc(void* ptr, size_t new_size) {
+  if (new_size == 0) {
+    psram_free(ptr);
+    return nullptr;
+  }
+#if defined(ESP_PLATFORM) && defined(BOARD_HAS_PSRAM)
+  void* p = heap_caps_realloc(ptr, new_size, MALLOC_CAP_SPIRAM);
+  if (p != nullptr) return p;
+  // A block that fell back to internal DRAM on allocation (PSRAM exhausted) cannot
+  // be grown in PSRAM; retry there rather than reporting failure.
+  return heap_caps_realloc(ptr, new_size, MALLOC_CAP_INTERNAL);
+#else
+  return realloc(ptr, new_size);
+#endif
+}
+
+// Shared JSON document pools follow the same PSRAM-first policy as the bridge's
+// text buffers. ArduinoJson calls reallocate() when shrinking its pool list and
+// asserts the result is non-null for a shrink, which both branches above satisfy.
+void* MQTTBridge::JsonScratchAllocator::allocate(size_t size) {
+  return psram_malloc(size);
+}
+
+void MQTTBridge::JsonScratchAllocator::deallocate(void* ptr) {
+  psram_free(ptr);
+}
+
+void* MQTTBridge::JsonScratchAllocator::reallocate(void* ptr, size_t new_size) {
+  return psram_realloc(ptr, new_size);
+}
+
 // Time (millis()) when WiFi was last seen connected; 0 when disconnected. Used for get wifi.status uptime.
 static unsigned long s_wifi_connected_at = 0;
 
@@ -609,7 +640,7 @@ MQTTBridge::MQTTBridge(NodePrefs *prefs, MQTTPrefs *obs, mesh::PacketManager *mg
 #endif
       _last_raw_len(0), _last_snr(0), _last_rssi(0), _last_raw_timestamp(0),
 #if defined(BOARD_HAS_PSRAM)
-      _publish_json_buffer(nullptr), _status_json_buffer(nullptr),
+      _json_scratch_buffer(nullptr),
 #endif
       _identity(identity),
       _cached_has_connected_slots(false),
@@ -625,7 +656,7 @@ MQTTBridge::MQTTBridge(NodePrefs *prefs, MQTTPrefs *obs, mesh::PacketManager *mg
       _last_slot_reconnect_ms(0)
 #ifdef ESP_PLATFORM
       , _packet_queue_handle(nullptr), _mqtt_task_handle(nullptr),
-        _mqtt_task_stack(nullptr), _packet_queue_storage(nullptr)
+        _packet_queue_storage(nullptr)
 #else
       , _queue_head(0), _queue_tail(0)
 #endif
@@ -712,8 +743,8 @@ MQTTBridge::MQTTBridge(NodePrefs *prefs, MQTTPrefs *obs, mesh::PacketManager *mg
   #if !defined(BOARD_HAS_PSRAM)
   memset(_last_raw_data, 0, sizeof(_last_raw_data));
   #endif
-  // JSON document scratch space is now a StaticJsonDocument inline class member —
-  // no heap allocation needed; reused via doc.clear() on every publish.
+  // The shared JSON document needs no setup here: its pools are allocated lazily on
+  // the first publish through _json_allocator and released by releaseRuntimeBuffers().
 }
 
 void MQTTBridge::allocateRuntimeBuffers() {
@@ -723,14 +754,11 @@ void MQTTBridge::allocateRuntimeBuffers() {
   // next begin() will retry only the missing buffer.
   _last_raw_data = static_cast<uint8_t*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
       _last_raw_data, LAST_RAW_DATA_SIZE, psram_malloc));
-  _publish_json_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
-      _publish_json_buffer, PUBLISH_JSON_BUFFER_SIZE, psram_malloc));
-  _status_json_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
-      _status_json_buffer, STATUS_JSON_BUFFER_SIZE, psram_malloc));
-  MQTT_DEBUG_PRINTLN("Runtime buffers: raw=%s publish=%s status=%s",
+  _json_scratch_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
+      _json_scratch_buffer, PUBLISH_JSON_BUFFER_SIZE, psram_malloc));
+  MQTT_DEBUG_PRINTLN("Runtime buffers: raw=%s json=%s",
       _last_raw_data ? "PSRAM" : "unavailable",
-      _publish_json_buffer ? "PSRAM" : "stack fallback",
-      _status_json_buffer ? "PSRAM" : "stack fallback");
+      _json_scratch_buffer ? "PSRAM" : "stack fallback");
   #endif
 
 #if defined(WITH_MQTT_NEIGHBORS)
@@ -750,11 +778,14 @@ void MQTTBridge::releaseRuntimeBuffers() {
   #if defined(BOARD_HAS_PSRAM)
   _last_raw_data = static_cast<uint8_t*>(MQTTRuntimeBufferLifecycle::release(
       _last_raw_data, psram_free));
-  _publish_json_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::release(
-      _publish_json_buffer, psram_free));
-  _status_json_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::release(
-      _status_json_buffer, psram_free));
+  _json_scratch_buffer = static_cast<char*>(MQTTRuntimeBufferLifecycle::release(
+      _json_scratch_buffer, psram_free));
   #endif
+
+  // Drop the shared document's pools with the buffers. clear() destroys every pool
+  // and resets the list to its inline array; the next publish reallocates. Holding
+  // 4 KB of pool across a stopped bridge is pure overhead.
+  _json_scratch_doc.clear();
 
 #if defined(WITH_MQTT_NEIGHBORS)
   // Paired with the unconditional allocation in allocateRuntimeBuffers().
@@ -961,9 +992,8 @@ void MQTTBridge::begin() {
   #define MQTT_TASK_PRIORITY 1
   #endif
 
-  // Task stack: use dynamic allocation (internal RAM). PSRAM stack was disabled because it
-  // causes resets on some boards (e.g. Heltec V4) when the task runs from PSRAM stack.
-  _mqtt_task_stack = nullptr;
+  // Task stack: dynamic allocation (internal RAM). A PSRAM-backed stack was tried and
+  // reverted — it resets some boards (e.g. Heltec V4) when the task runs from PSRAM.
   _mqtt_task_handle = nullptr;
   // Clear the cooperative-stop handshake before the new task starts reading it.
   // deliverStop() leaves _stop_requested latched true after a stop cycle, so a
@@ -982,8 +1012,6 @@ void MQTTBridge::begin() {
   if (create_result != pdPASS) _mqtt_task_handle = nullptr;
   if (_mqtt_task_handle == nullptr) {
     MQTT_DEBUG_PRINTLN("Failed to create MQTT task!");
-    psram_free(_mqtt_task_stack);
-    _mqtt_task_stack = nullptr;
     vQueueDelete(_packet_queue_handle);
     _packet_queue_handle = nullptr;
     #if defined(BOARD_HAS_PSRAM)
@@ -1085,7 +1113,7 @@ void MQTTBridge::end() {
 #endif
 
   // Timezone is inline class storage (_timezone_storage) — nothing to delete.
-  // JSON documents are StaticJsonDocument inline members — no heap to free.
+  // The shared JSON document's pools were freed by releaseRuntimeBuffers() above.
   _initialized = false;
   _slots_setup_done = false;  // Reset so deferred setup runs again on next begin()
   MQTT_DEBUG_PRINTLN("MQTT Bridge stopped (%s)",
@@ -1138,10 +1166,6 @@ void MQTTBridge::LifecycleOps::releaseResources() {
   // Just drop our handle reference; FreeRTOS reclaims the self-deleted task's
   // dynamically-allocated stack/TCB in the idle task.
   b->_mqtt_task_handle = nullptr;
-
-  // Free the PSRAM task stack (nullptr for dynamic tasks — no-op).
-  psram_free(b->_mqtt_task_stack);
-  b->_mqtt_task_stack = nullptr;
 
   // Drain and delete the FreeRTOS packet queue (value-copied packets, no
   // external pointers to clean up). Safe on Core 1: not a TLS resource.
@@ -1589,7 +1613,7 @@ void MQTTBridge::initSlotClients() {
       updateCachedConnectionStatus();  // bool store — safe from this (esp-mqtt) task
       // This callback runs on the client's esp-mqtt event task, not the bridge
       // task. Do NOT build/publish status here: publishStatusToSlot() writes the
-      // shared _status_json_doc/_status_json_buffer/_origin that the periodic
+      // shared _json_scratch_doc/_json_scratch_buffer/_origin that the periodic
       // publishStatus() uses on the bridge task, and two slots' callbacks could
       // race each other over them. Marshal the publish onto the bridge task via a
       // per-slot flag (see mqttTaskLoop consumer / A2).
@@ -2173,7 +2197,7 @@ bool MQTTBridge::createSlotAuthToken(int index) {
   return false;
 }
 
-bool MQTTBridge::publishToSlot(int index, const char* topic, const char* payload, bool retained, uint8_t qos) {
+bool MQTTBridge::publishToSlot(int index, const char* topic, const char* payload, size_t payload_len, bool retained, uint8_t qos) {
   if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return false;
   MQTTSlot& slot = _slots[index];
   if (!slot.client || !slot.connected) {
@@ -2201,7 +2225,7 @@ bool MQTTBridge::publishToSlot(int index, const char* topic, const char* payload
   // tracking). Negative values (-1 write/failure) are the only actual failures; the queue
   // retry/drop path below handles them.
   bool async = (qos > 0);
-  int result = slot.client->publish(topic, qos, retained, payload, strlen(payload), async);
+  int result = slot.client->publish(topic, qos, retained, payload, (int)payload_len, async);
   if (result < 0) {
     // QoS0 packet/raw publishes are best-effort and may be retried from the
     // bridge queue; avoid logging transient first-attempt failures here.
@@ -2218,11 +2242,11 @@ bool MQTTBridge::publishToSlot(int index, const char* topic, const char* payload
   return true;
 }
 
-bool MQTTBridge::publishToAllSlots(const char* topic, const char* payload, bool retained, uint8_t qos) {
+bool MQTTBridge::publishToAllSlots(const char* topic, const char* payload, size_t payload_len, bool retained, uint8_t qos) {
   bool published = false;
   for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
     if (_slots[i].enabled && _slots[i].client && _slots[i].connected) {
-      if (publishToSlot(i, topic, payload, retained, qos)) {
+      if (publishToSlot(i, topic, payload, payload_len, retained, qos)) {
         published = true;
       }
     }
@@ -2284,15 +2308,16 @@ void MQTTBridge::publishStatusToSlot(int index) {
   }
 
   // Reuse pre-allocated buffer to avoid heap alloc/free churn under memory pressure.
-  // _status_json_doc/_status_json_buffer/_origin are shared with publishStatus();
-  // both callers run only on the bridge task (this function is reached solely via
-  // the _status_publish_pending consumer in mqttTaskLoop, never from the onConnect
-  // callback thread — see A2), so the accesses are serialized and need no mutex.
+  // _json_scratch_doc/_json_scratch_buffer/_origin are shared with publishStatus() and
+  // with the packet/raw paths; every one of them runs only on the bridge task (this
+  // function is reached solely via the _status_publish_pending consumer in
+  // mqttTaskLoop, never from the onConnect callback thread — see A2), so the accesses
+  // are serialized and need no mutex.
   #if defined(BOARD_HAS_PSRAM)
   char fallback_status_buffer[STATUS_JSON_BUFFER_SIZE];
-  char* json_buffer = (_status_json_buffer != nullptr) ? _status_json_buffer : fallback_status_buffer;
+  char* json_buffer = (_json_scratch_buffer != nullptr) ? _json_scratch_buffer : fallback_status_buffer;
   #else
-  char* json_buffer = _status_json_buffer;
+  char* json_buffer = _json_scratch_buffer;
   #endif
 
   char origin_id[65];
@@ -2343,7 +2368,7 @@ void MQTTBridge::publishStatusToSlot(int index) {
   int internal_heap_free = (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
 
   int len = MQTTMessageBuilder::buildStatusMessage(
-    _status_json_doc,
+    _json_scratch_doc,
     _origin, origin_id, _board_model, _firmware_version, radio_info,
     client_version, "online", timestamp, json_buffer, STATUS_JSON_BUFFER_SIZE,
     battery_mv, uptime_secs, errors, _queue_count, noise_floor,
@@ -2358,7 +2383,7 @@ void MQTTBridge::publishStatusToSlot(int index) {
     // on-connect status must not force retain=true. Custom slots default to
     // non-retained here too, keeping both status paths consistent.
     bool use_retain = slot.preset ? slot.preset->allow_retain : false;
-    int result = slot.client->publish(status_topic, 1, use_retain, json_buffer, strlen(json_buffer));
+    int result = slot.client->publish(status_topic, 1, use_retain, json_buffer, len);
     if (result <= 0) {
       MQTT_DEBUG_PRINTLN("MQTT%d status publish failed", index + 1);
     }
@@ -3148,12 +3173,12 @@ bool MQTTBridge::publishStatus() {
   refreshOriginFromPrefs();
 
   // Reuse pre-allocated buffer to avoid heap alloc/free churn under memory pressure.
-  // _status_json_buffer and _last_raw_data are both Core 0-owned; no mutex needed.
+  // _json_scratch_buffer and _last_raw_data are both Core 0-owned; no mutex needed.
   #if defined(BOARD_HAS_PSRAM)
   char fallback_status_buffer[STATUS_JSON_BUFFER_SIZE];
-  char* json_buffer = (_status_json_buffer != nullptr) ? _status_json_buffer : fallback_status_buffer;
+  char* json_buffer = (_json_scratch_buffer != nullptr) ? _json_scratch_buffer : fallback_status_buffer;
   #else
-  char* json_buffer = _status_json_buffer;
+  char* json_buffer = _json_scratch_buffer;
   #endif
   char origin_id[65];
   char timestamp[40];
@@ -3203,7 +3228,7 @@ bool MQTTBridge::publishStatus() {
   int internal_heap_free = (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
 
   int len = MQTTMessageBuilder::buildStatusMessage(
-    _status_json_doc,
+    _json_scratch_doc,
     _origin, origin_id, _board_model, _firmware_version, radio_info,
     client_version, "online", timestamp, json_buffer, STATUS_JSON_BUFFER_SIZE,
     battery_mv, uptime_secs, errors, _queue_count, noise_floor,
@@ -3221,7 +3246,7 @@ bool MQTTBridge::publishStatus() {
         if (buildTopicForSlot(i, MSG_STATUS, topic, sizeof(topic))) {
           any_slot_wants_status = true;
           bool use_retain = _slots[i].preset ? _slots[i].preset->allow_retain : false;
-          if (publishToSlot(i, topic, json_buffer, use_retain, 1)) {
+          if (publishToSlot(i, topic, json_buffer, (size_t)len, use_retain, 1)) {
             published = true;
           }
         }
@@ -3295,15 +3320,15 @@ bool MQTTBridge::publishPacket(mesh::Packet* packet, bool is_tx,
   char json_buffer_stack[PUBLISH_JSON_BUFFER_SIZE];
   char* active_buffer;
   size_t active_buffer_size;
-  if (_publish_json_buffer != nullptr) {
-    active_buffer = _publish_json_buffer;
+  if (_json_scratch_buffer != nullptr) {
+    active_buffer = _json_scratch_buffer;
     active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
   } else {
     active_buffer = json_buffer_stack;
     active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
   }
 #else
-  char* active_buffer = _publish_json_buffer;
+  char* active_buffer = _json_scratch_buffer;
   const size_t active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
 #endif
   char origin_id[65];
@@ -3321,33 +3346,36 @@ bool MQTTBridge::publishPacket(mesh::Packet* packet, bool is_tx,
   if (raw_data && raw_len > 0) {
     float score = (_radio && !is_tx) ? _radio->packetScore(snr, raw_len) : NAN;
     len = MQTTMessageBuilder::buildPacketJSONFromRaw(
-      _packet_json_doc,
+      _json_scratch_doc,
       raw_data, raw_len, packet, is_tx, _origin, origin_id,
       snr, rssi, score, _timezone, active_buffer, active_buffer_size
     );
   } else if (!is_tx && _last_raw_data && _last_raw_len > 0 && (millis() - _last_raw_timestamp) < 1000) {
     float score = _radio ? _radio->packetScore(_last_snr, _last_raw_len) : NAN;
     len = MQTTMessageBuilder::buildPacketJSONFromRaw(
-      _packet_json_doc,
+      _json_scratch_doc,
       _last_raw_data, _last_raw_len, packet, is_tx, _origin, origin_id,
       _last_snr, _last_rssi, score, _timezone, active_buffer, active_buffer_size
     );
   } else {
     // Reconstruct wire-format bytes from packet (same as MQTTMessageBuilder::packetToHex).
-    // This path is used on non-PSRAM boards where raw_data is not stored in the queue,
-    // and ensures the "raw" hex field and SNR/RSSI are accurate in the JSON output.
-    uint8_t reconstructed[512];
-    uint8_t rlen = packet->writeTo(reconstructed);
+    // Reached when the queued item carried no captured raw frame, so the "raw" hex field
+    // is re-serialized rather than dropped. Length-guarded for the same reason.
+    uint8_t reconstructed[MQTTMessageBuilder::WIRE_SCRATCH_SIZE];
+    uint8_t rlen = 0;
+    if (packet->getRawLength() <= (int)sizeof(reconstructed)) {
+      rlen = packet->writeTo(reconstructed);
+    }
     if (rlen > 0) {
       float score = (_radio && !is_tx) ? _radio->packetScore(snr, rlen) : NAN;
       len = MQTTMessageBuilder::buildPacketJSONFromRaw(
-        _packet_json_doc,
+        _json_scratch_doc,
         reconstructed, rlen, packet, is_tx, _origin, origin_id,
         snr, rssi, score, _timezone, active_buffer, active_buffer_size
       );
     } else {
       len = MQTTMessageBuilder::buildPacketJSON(
-        _packet_json_doc,
+        _json_scratch_doc,
         packet, is_tx, _origin, origin_id, _timezone, active_buffer, active_buffer_size
       );
     }
@@ -3363,7 +3391,7 @@ bool MQTTBridge::publishPacket(mesh::Packet* packet, bool is_tx,
       if ((eligible_slots & static_cast<uint8_t>(1u << i)) != 0 &&
           _slots[i].enabled && _slots[i].client && _slots[i].connected) {
         if (buildTopicForSlot(i, MSG_PACKETS, topic, sizeof(topic))) {
-          if (publishToSlot(i, topic, active_buffer, false)) {
+          if (publishToSlot(i, topic, active_buffer, (size_t)len, false)) {
             published = true;
           }
         }
@@ -3395,15 +3423,15 @@ bool MQTTBridge::publishRaw(mesh::Packet* packet, bool& has_eligible_target) {
   char json_buffer_stack[PUBLISH_JSON_BUFFER_SIZE];
   char* active_buffer;
   size_t active_buffer_size;
-  if (_publish_json_buffer != nullptr) {
-    active_buffer = _publish_json_buffer;
+  if (_json_scratch_buffer != nullptr) {
+    active_buffer = _json_scratch_buffer;
     active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
   } else {
     active_buffer = json_buffer_stack;
     active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
   }
 #else
-  char* active_buffer = _publish_json_buffer;
+  char* active_buffer = _json_scratch_buffer;
   const size_t active_buffer_size = PUBLISH_JSON_BUFFER_SIZE;
 #endif
   char origin_id[65];
@@ -3422,7 +3450,7 @@ bool MQTTBridge::publishRaw(mesh::Packet* packet, bool& has_eligible_target) {
       if ((eligible_slots & static_cast<uint8_t>(1u << i)) != 0 &&
           _slots[i].enabled && _slots[i].client && _slots[i].connected) {
         if (buildTopicForSlot(i, MSG_RAW, topic, sizeof(topic))) {
-          if (publishToSlot(i, topic, active_buffer, false)) {
+          if (publishToSlot(i, topic, active_buffer, (size_t)len, false)) {
             published = true;
           }
         }
@@ -3472,7 +3500,7 @@ bool MQTTBridge::publishNeighbors() {
         // Neighbor snapshots are periodically refreshed. Publish synchronously
         // at QoS 0 to avoid the QoS 1 outbox, retaining where the broker allows.
         bool use_retain = _slots[i].preset ? _slots[i].preset->allow_retain : false;
-        if (publishToSlot(i, topic, _neighbors_json_buffer, use_retain, 0)) {
+        if (publishToSlot(i, topic, _neighbors_json_buffer, _neighbors_publish_len, use_retain, 0)) {
           published = true;
         }
       }

@@ -176,9 +176,6 @@ private:
   #ifdef ESP_PLATFORM
   QueueHandle_t _packet_queue_handle;
   TaskHandle_t _mqtt_task_handle;
-  // PSRAM-backed task stack; TCB kept in internal RAM
-  StackType_t* _mqtt_task_stack;     // nullptr if using dynamic task creation
-  StaticTask_t _mqtt_task_tcb;
   // Packet queue storage: PSRAM heap on PSRAM boards, inline array on non-PSRAM boards.
   // Using xQueueCreateStatic with inline storage eliminates a separate heap allocation.
   uint8_t* _packet_queue_storage;
@@ -285,17 +282,22 @@ private:
   float _last_rssi;
   unsigned long _last_raw_timestamp;
 
-  // JSON publish/status serialization buffers — reused for every publish (no alloc/free churn).
-  // On PSRAM boards: heap pointer into PSRAM to save internal heap. On non-PSRAM: inline in
-  // class object so these allocations don't interleave with large TLS buffers at startup.
+  // One JSON serialization buffer shared by every publish path — packet, raw, and
+  // status all serialize on the bridge task (Core 0), so they are never in flight at
+  // the same time and a second buffer bought nothing. Reused rather than reallocated
+  // per publish (no alloc/free churn). On PSRAM boards: heap pointer into PSRAM to save
+  // internal heap. On non-PSRAM: inline in the class object so the allocation doesn't
+  // interleave with large TLS buffers at startup.
   static const size_t PUBLISH_JSON_BUFFER_SIZE = 2048;
+  // Status keeps its own smaller ceiling: raising it would change which oversized
+  // status documents get published instead of dropped.
   static const size_t STATUS_JSON_BUFFER_SIZE = 768;
+  static_assert(STATUS_JSON_BUFFER_SIZE <= PUBLISH_JSON_BUFFER_SIZE,
+                "status payloads serialize into the shared publish buffer");
   #if defined(BOARD_HAS_PSRAM)
-  char* _publish_json_buffer;
-  char* _status_json_buffer;
+  char* _json_scratch_buffer;
   #else
-  char _publish_json_buffer[PUBLISH_JSON_BUFFER_SIZE];
-  char _status_json_buffer[STATUS_JSON_BUFFER_SIZE];
+  char _json_scratch_buffer[PUBLISH_JSON_BUFFER_SIZE];
   #endif
 
 #if defined(WITH_MQTT_NEIGHBORS)
@@ -318,10 +320,23 @@ private:
   std::atomic<uint32_t> _neighbors_secs_until_next;
 #endif
 
-  // JSON document scratch space — inline StaticJsonDocument keeps the pool off the MQTT
-  // task stack and eliminates two separate heap allocations (fragmentation reduction).
-  StaticJsonDocument<PUBLISH_JSON_BUFFER_SIZE> _packet_json_doc;
-  StaticJsonDocument<STATUS_JSON_BUFFER_SIZE>  _status_json_doc;
+  // Routes the shared document's pools to PSRAM where the board has it, matching the
+  // neighbors document's allocator in MyMesh.cpp. ArduinoJson's default allocator is
+  // plain malloc(), which puts every per-publish pool block (4096 bytes here) in
+  // internal DRAM next to the mbedTLS working set.
+  struct JsonScratchAllocator : ArduinoJson::Allocator {
+    void* allocate(size_t size) override;
+    void deallocate(void* ptr) override;
+    void* reallocate(void* ptr, size_t new_size) override;
+  };
+  JsonScratchAllocator _json_allocator;
+
+  // Shared by the packet/raw/status builders, like _json_scratch_buffer above.
+  // Declared after _json_allocator so the allocator is constructed first.
+  // This was a StaticJsonDocument<N> described as an inline pool; under ArduinoJson 7
+  // that is a deprecated empty subclass of JsonDocument whose template argument only
+  // feeds capacity(), so the object is 64 bytes and every pool comes from the allocator.
+  JsonDocument _json_scratch_doc{&_json_allocator};
 
   // Memory pressure monitoring (per-publish skip; see publishPacket()).
   // The broader fragmentation-recovery machinery was removed in Phase 4 of
@@ -400,8 +415,11 @@ private:
   void maintainSlotConnection(int index, unsigned long now_millis, unsigned long current_time, bool time_synced, bool& reconnect_attempted, bool& teardown_attempted);
   bool createSlotAuthToken(int index); // Create/renew JWT token for a slot
   unsigned long slotTokenLifetime(int index) const; // effective JWT lifetime (preset/default minus slot stagger), seconds
-  bool publishToSlot(int index, const char* topic, const char* payload, bool retained = false, uint8_t qos = 0);
-  bool publishToAllSlots(const char* topic, const char* payload, bool retained = false, uint8_t qos = 0);
+  // payload_len is the serialized length the builder already returned. Every caller
+  // knows it, and passing it avoids re-scanning up to 2 KB of JSON per destination
+  // slot (and up to NEIGHBORS_JSON_BUFFER_SIZE per neighbor snapshot).
+  bool publishToSlot(int index, const char* topic, const char* payload, size_t payload_len, bool retained = false, uint8_t qos = 0);
+  bool publishToAllSlots(const char* topic, const char* payload, size_t payload_len, bool retained = false, uint8_t qos = 0);
   void publishStatusToSlot(int index);
   void updateCachedConnectionStatus();
 
