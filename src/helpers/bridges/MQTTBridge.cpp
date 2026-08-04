@@ -12,6 +12,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#include <new>
 #include <strings.h>
 
 #ifdef WITH_SNMP
@@ -505,7 +506,13 @@ void MQTTBridge::formatSlotDiagReply(char* buf, size_t bufsize, int slot_index) 
     return;
   } else if (!slot.enabled) {
     state = "inactive";
+  } else if (!b->isSlotReady(slot_index)) {
+    // Same classification as `get mqtt.status` and getSlotStatusSnapshot(): the slot
+    // is configured but missing a token/IATA/credential, so it was never set up and
+    // has no client yet. Previously reported "disc", which read as a network fault.
+    state = "wait";
   } else if (!slot.client) {
+    // Ready to connect but the client object could not be allocated.
     state = "no client";
   } else if (slot.connected) {
     state = "ok";
@@ -1035,10 +1042,11 @@ void MQTTBridge::begin() {
   // NOTE: Slot setup deferred until after NTP sync in loop()
   #endif
 
-  // Allocate persistent MQTT client objects once. They live for the bridge's
-  // lifetime so reconfigure/reconnect paths reuse the same mbedTLS context
-  // instead of churning ~40 KB of internal heap per cycle.
-  initSlotClients();
+  // MQTT client objects are NOT allocated here. setupSlot() creates one on a slot's
+  // first setup, so unconfigured and capped-off slots never cost their ~1.3 KB of
+  // internal DRAM. Once created a client lives for the bridge's lifetime, so the
+  // reconfigure/reconnect paths still reuse the same mbedTLS context instead of
+  // churning ~40 KB of internal heap per cycle.
 
   // Sync the lifecycle Coordinator to Running now that all resources exist and
   // the task is created. Driven only on the success path: the failure rollbacks
@@ -1574,85 +1582,96 @@ void MQTTBridge::mqttTaskLoop() {
 // Slot management
 // ---------------------------------------------------------------------------
 
-// Allocate one PsychicMqttClient per slot and register its persistent callbacks.
-// Called exactly once per bridge lifetime from begin(); the objects live until
-// destroySlotClients(). Reconfiguring a slot (preset change, JWT renewal,
-// reconnect) reuses the same client — no delete/new cycles, so the mbedTLS
-// context and its ~40 KB of internal-heap buffers are allocated once instead
-// of every reconfigure.
-void MQTTBridge::initSlotClients() {
-  for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
-    MQTTSlot& slot = _slots[i];
-    if (slot.client != nullptr) continue;
+// Allocate this slot's PsychicMqttClient and register its persistent callbacks.
+// Called from setupSlot(), i.e. only for a slot that is enabled, within the active
+// cap, and ready to connect — a client is ~1.3 KB of internal DRAM and does nothing
+// at all until setupSlot() runs (the reconnect ladder is gated on
+// initial_connect_done), so slots that are unconfigured or capped off never get one.
+//
+// Once created the object lives until destroySlotClients(): reconfiguring a slot
+// (preset change, JWT renewal, reconnect) reuses it, so the mbedTLS context and its
+// ~40 KB of internal-heap buffers are allocated once instead of every reconfigure.
+// That context is created by connect(), not by this constructor, so deferring the
+// allocation to first use costs nothing beyond the object itself.
+bool MQTTBridge::ensureSlotClient(int index) {
+  if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return false;
+  MQTTSlot& slot = _slots[index];
+  if (slot.client != nullptr) return true;
 
-    slot.client = new PsychicMqttClient();
-    slot.client->setAutoReconnect(false);  // we handle reconnect with our own backoff
-
-    const int index = i;  // capture a fresh copy so lambdas refer to the right slot
-    slot.client->onConnect([this, index](bool sessionPresent) {
-      MQTT_DEBUG_PRINTLN("MQTT%d connected", index + 1);
-      _slots[index].connected = true;
-      // NOTE: reconnect_backoff / max_backoff_failures are NOT reset here.
-      // A CONNACK alone doesn't prove the link is healthy — a broker that
-      // accepts and then drops within seconds would reset the ladder every
-      // cycle and retry at the 10 s rung forever, and each retry is a full
-      // TLS session alloc/free (~40 KB of internal-heap churn, a known
-      // fragmentation driver). The ladder is instead cleared by
-      // maintainSlotConnection() once the connection has stayed up for
-      // BACKOFF_STABLE_RESET_MS, so flapping endpoints keep their earned
-      // backoff level. The breaker itself does clear now: while connected
-      // the diag/status must not claim the slot gave up, and the next
-      // disconnect should be governed by the (still-elevated) ladder.
-      _slots[index].connected_at_ms = millis();
-      _slots[index].circuit_breaker_tripped = false;
-      _slots[index].last_tls_err = 0;
-      _slots[index].last_tls_stack_err = 0;
-      _slots[index].last_sock_errno = 0;
-      _slots[index].last_error_time = 0;
-      _slots[index].current_outage_started_ms = 0;  // clear current-outage timer for AlertReporter
-      updateCachedConnectionStatus();  // bool store — safe from this (esp-mqtt) task
-      // This callback runs on the client's esp-mqtt event task, not the bridge
-      // task. Do NOT build/publish status here: publishStatusToSlot() writes the
-      // shared _json_scratch_doc/_json_scratch_buffer/_origin that the periodic
-      // publishStatus() uses on the bridge task, and two slots' callbacks could
-      // race each other over them. Marshal the publish onto the bridge task via a
-      // per-slot flag (see mqttTaskLoop consumer / A2).
-      _status_publish_pending[index] = true;
-    });
-    slot.client->onDisconnect([this, index](bool sessionPresent) {
-      MQTT_DEBUG_PRINTLN("MQTT%d disconnected", index + 1);
-      _slots[index].disconnect_count++;
-      if (_slots[index].first_disconnect_time == 0) {
-        _slots[index].first_disconnect_time = millis();
-      }
-      if (_slots[index].current_outage_started_ms == 0) {
-        _slots[index].current_outage_started_ms = millis();
-      }
-      _slots[index].connected = false;
-      _slots[index].connected_at_ms = 0;  // stability clock only runs while connected
-      updateCachedConnectionStatus();
-    });
-    slot.client->onError([this, index](esp_mqtt_error_codes error) {
-      _slots[index].last_tls_err = error.esp_tls_last_esp_err;
-      _slots[index].last_tls_stack_err = error.esp_tls_stack_err;
-      _slots[index].last_sock_errno = error.esp_transport_sock_errno;
-      _slots[index].last_error_time = millis();
-      if (error.error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
-        // Broker rejected the MQTT CONNECT itself — not a transport failure.
-        // return code: 1=protocol, 2=client-id rejected, 3=server unavailable,
-        // 4=bad username/password, 5=not authorized. Codes 3/4/5 point at a
-        // server-side lockout or auth problem rather than the network.
-        MQTT_DEBUG_PRINTLN("MQTT%d connection refused by broker (return code=%d)",
-          index + 1, (int)error.connect_return_code);
-      } else if (error.esp_tls_last_esp_err != 0 || error.esp_tls_stack_err != 0 || error.esp_transport_sock_errno != 0) {
-        MQTT_DEBUG_PRINTLN("MQTT%d error: tls=%d, tls_stack=%d, sock=%d, type=%d",
-          index + 1, error.esp_tls_last_esp_err, error.esp_tls_stack_err,
-          error.esp_transport_sock_errno, error.error_type);
-      } else {
-        MQTT_DEBUG_PRINTLN("MQTT%d error: type=%d", index + 1, error.error_type);
-      }
-    });
+  // nothrow: this framework builds with C++ exceptions enabled, so a plain new would
+  // throw on exhaustion and panic the node. A slot that cannot get a client should
+  // degrade to the "no client" diag state instead.
+  slot.client = new (std::nothrow) PsychicMqttClient();
+  if (slot.client == nullptr) {
+    MQTT_DEBUG_PRINTLN("MQTT%d: out of memory allocating client", index + 1);
+    return false;
   }
+  slot.client->setAutoReconnect(false);  // we handle reconnect with our own backoff
+
+  slot.client->onConnect([this, index](bool sessionPresent) {
+    MQTT_DEBUG_PRINTLN("MQTT%d connected", index + 1);
+    _slots[index].connected = true;
+    // NOTE: reconnect_backoff / max_backoff_failures are NOT reset here.
+    // A CONNACK alone doesn't prove the link is healthy — a broker that
+    // accepts and then drops within seconds would reset the ladder every
+    // cycle and retry at the 10 s rung forever, and each retry is a full
+    // TLS session alloc/free (~40 KB of internal-heap churn, a known
+    // fragmentation driver). The ladder is instead cleared by
+    // maintainSlotConnection() once the connection has stayed up for
+    // BACKOFF_STABLE_RESET_MS, so flapping endpoints keep their earned
+    // backoff level. The breaker itself does clear now: while connected
+    // the diag/status must not claim the slot gave up, and the next
+    // disconnect should be governed by the (still-elevated) ladder.
+    _slots[index].connected_at_ms = millis();
+    _slots[index].circuit_breaker_tripped = false;
+    _slots[index].last_tls_err = 0;
+    _slots[index].last_tls_stack_err = 0;
+    _slots[index].last_sock_errno = 0;
+    _slots[index].last_error_time = 0;
+    _slots[index].current_outage_started_ms = 0;  // clear current-outage timer for AlertReporter
+    updateCachedConnectionStatus();  // bool store — safe from this (esp-mqtt) task
+    // This callback runs on the client's esp-mqtt event task, not the bridge
+    // task. Do NOT build/publish status here: publishStatusToSlot() writes the
+    // shared _json_scratch_doc/_json_scratch_buffer/_origin that the periodic
+    // publishStatus() uses on the bridge task, and two slots' callbacks could
+    // race each other over them. Marshal the publish onto the bridge task via a
+    // per-slot flag (see mqttTaskLoop consumer / A2).
+    _status_publish_pending[index] = true;
+  });
+  slot.client->onDisconnect([this, index](bool sessionPresent) {
+    MQTT_DEBUG_PRINTLN("MQTT%d disconnected", index + 1);
+    _slots[index].disconnect_count++;
+    if (_slots[index].first_disconnect_time == 0) {
+      _slots[index].first_disconnect_time = millis();
+    }
+    if (_slots[index].current_outage_started_ms == 0) {
+      _slots[index].current_outage_started_ms = millis();
+    }
+    _slots[index].connected = false;
+    _slots[index].connected_at_ms = 0;  // stability clock only runs while connected
+    updateCachedConnectionStatus();
+  });
+  slot.client->onError([this, index](esp_mqtt_error_codes error) {
+    _slots[index].last_tls_err = error.esp_tls_last_esp_err;
+    _slots[index].last_tls_stack_err = error.esp_tls_stack_err;
+    _slots[index].last_sock_errno = error.esp_transport_sock_errno;
+    _slots[index].last_error_time = millis();
+    if (error.error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+      // Broker rejected the MQTT CONNECT itself — not a transport failure.
+      // return code: 1=protocol, 2=client-id rejected, 3=server unavailable,
+      // 4=bad username/password, 5=not authorized. Codes 3/4/5 point at a
+      // server-side lockout or auth problem rather than the network.
+      MQTT_DEBUG_PRINTLN("MQTT%d connection refused by broker (return code=%d)",
+        index + 1, (int)error.connect_return_code);
+    } else if (error.esp_tls_last_esp_err != 0 || error.esp_tls_stack_err != 0 || error.esp_transport_sock_errno != 0) {
+      MQTT_DEBUG_PRINTLN("MQTT%d error: tls=%d, tls_stack=%d, sock=%d, type=%d",
+        index + 1, error.esp_tls_last_esp_err, error.esp_tls_stack_err,
+        error.esp_transport_sock_errno, error.error_type);
+    } else {
+      MQTT_DEBUG_PRINTLN("MQTT%d error: type=%d", index + 1, error.error_type);
+    }
+  });
+  return true;
 }
 
 void MQTTBridge::destroySlotClients() {
@@ -1682,10 +1701,9 @@ void MQTTBridge::setupSlot(int index) {
     return;
   }
 
-  // Persistent client is expected to have been allocated by initSlotClients().
-  // If it hasn't, we can't proceed — bail loudly rather than silently leaking.
-  if (slot.client == nullptr) {
-    MQTT_DEBUG_PRINTLN("MQTT%d: setupSlot before initSlotClients() - skipping", index + 1);
+  // First setup for this slot allocates its persistent client; later ones reuse it.
+  if (!ensureSlotClient(index)) {
+    MQTT_DEBUG_PRINTLN("MQTT%d: client allocation failed - skipping", index + 1);
     return;
   }
 
@@ -1958,7 +1976,7 @@ void MQTTBridge::maintainSlotConnection(int index, unsigned long now_millis, uns
   // ladder. Flapping endpoints therefore stay at their earned backoff rung
   // (worst case the 300 s rung / 30-minute breaker probes) instead of
   // hammering full TLS handshakes at the 10 s rung — see the onConnect
-  // handler in initSlotClients() for why this doesn't happen on CONNACK.
+  // handler in ensureSlotClient() for why this doesn't happen on CONNACK.
   if (slot.connected &&
       (slot.reconnect_backoff != 0 || slot.max_backoff_failures != 0) &&
       MQTTConnectionPolicy::stableConnection(static_cast<uint32_t>(now_millis),
@@ -2057,8 +2075,8 @@ void MQTTBridge::maintainSlotConnection(int index, unsigned long now_millis, uns
           (_radio && _radio->getLastRecvMillis() > 0) ? (_ms->getMillis() - _radio->getLastRecvMillis()) : 0);
       if (slot_uses_jwt) {
         // Regenerate or refresh token, then reconnect the persistent client.
-        // The client object and its mbedTLS context are always live post
-        // initSlotClients(), so no full setup is ever needed here.
+        // Reaching the ladder at all means setupSlot() ran, so the client object
+        // and its mbedTLS context are live and no full setup is needed here.
         if (createSlotAuthToken(index)) {
           slot.client->setCredentials(_jwt_username, slot.auth_token);
           MQTT_DEBUG_PRINTLN("MQTT%d circuit breaker probe (fresh token)", index + 1);
@@ -3122,7 +3140,10 @@ uint8_t MQTTBridge::eligiblePacketSlots(uint8_t packet_type, MQTTMessageType typ
   uint8_t eligible_slots = 0;
   char topic[128];
   for (int i = 0; i < RUNTIME_MQTT_SLOTS; ++i) {
-    const bool slot_enabled = _slots[i].enabled && _slots[i].client != nullptr;
+    // Configuration is the gate, not client allocation: a slot whose client has not
+    // been created yet (setupSlot() runs only after NTP sync) is still a target, so
+    // the packet stays queued for the bounded retry per the note above.
+    const bool slot_enabled = _slots[i].enabled;
     // Load once so a live CLI/WebConfig update cannot split this packet's
     // decision across two different masks.
     const uint16_t filter_mask = _obs->mqtt_slot_packet_filter[i];
@@ -3151,7 +3172,10 @@ bool MQTTBridge::shouldQueuePacketType(uint8_t packet_type, bool& filtered) {
   bool any_enabled = false;
   for (int i = 0; i < RUNTIME_MQTT_SLOTS; ++i) {
     masks[i] = _obs->mqtt_slot_packet_filter[i];
-    enabled[i] = _slots[i].enabled && _slots[i].client != nullptr;
+    // Configured, not allocated — see eligiblePacketSlots(). Gating on the client
+    // here would silently drop every packet received before the post-NTP-sync slot
+    // setup, which is exactly the window the queue exists to cover.
+    enabled[i] = _slots[i].enabled;
     any_enabled = any_enabled || enabled[i];
   }
   if (!any_enabled) return false;

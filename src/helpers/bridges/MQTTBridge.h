@@ -398,16 +398,17 @@ private:
 
   // Internal methods - slot management
   // Lifetime model (Phase 1 of MQTT memory-defrag):
-  // - initSlotClients() allocates one PsychicMqttClient per slot and registers
-  //   its persistent callbacks. Runs once per bridge lifetime in begin().
+  // - ensureSlotClient() allocates this slot's PsychicMqttClient and registers its
+  //   persistent callbacks. Called from setupSlot() on a slot's first setup, so an
+  //   unconfigured or capped-off slot never pays for a client it cannot use.
   // - destroySlotClients() disconnects and deletes each client. Runs once in end().
-  // - setupSlot() configures an already-allocated client (server, credentials,
-  //   CA) and calls connect(). Safe to call multiple times to reconfigure.
+  // - setupSlot() ensures the client exists, then configures it (server,
+  //   credentials, CA) and calls connect(). Safe to call again to reconfigure.
   // - teardownSlot() only disconnects — it never deletes the client. Leaves
   //   the mbedTLS/transport state ready for a subsequent setupSlot().
   // This avoids delete/new cycles that shed ~40 KB of mbedTLS buffers per
   // reconfigure and fragment the internal heap on non-PSRAM boards.
-  void initSlotClients();              // Allocate persistent clients + register callbacks (once)
+  bool ensureSlotClient(int index);    // Allocate this slot's persistent client + callbacks on first use
   void destroySlotClients();           // Delete all persistent clients (shutdown only)
   void setupSlot(int index);           // Configure and connect the slot's existing client
   void teardownSlot(int index);        // Disconnect the slot's client (keeps the object alive)
