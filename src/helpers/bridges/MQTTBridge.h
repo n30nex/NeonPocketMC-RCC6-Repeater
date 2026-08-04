@@ -329,8 +329,11 @@ private:
 
   // Routes the shared document's pools to PSRAM where the board has it, matching the
   // neighbors document's allocator in MyMesh.cpp. ArduinoJson's default allocator is
-  // plain malloc(), which puts every per-publish pool block (4096 bytes here) in
-  // internal DRAM next to the mbedTLS working set.
+  // plain malloc(), which puts every per-publish pool block in internal DRAM next to
+  // the mbedTLS working set. A block is ARDUINOJSON_POOL_CAPACITY slots: these targets
+  // are 32-bit, so ARDUINOJSON_SLOT_ID_SIZE is 2 and that resolves to 128 slots =
+  // 1024 bytes per block, not the 4096 quoted near NEIGHBORS_DOC_POOL_BUDGET below
+  // (which describes a 64-bit configuration; its own byte measurements still stand).
   struct JsonScratchAllocator : ArduinoJson::Allocator {
     void* allocate(size_t size) override;
     void deallocate(void* ptr) override;
@@ -378,6 +381,10 @@ private:
   unsigned long _last_no_broker_log;
   static const unsigned long NO_BROKER_LOG_INTERVAL = 30000; // Log every 30 seconds max
   static const unsigned long SLOT_LOG_INTERVAL = 30000; // Log every 30 seconds max
+  // Retry cadence for a slot whose setup failed on an allocation. Deliberately slower
+  // than the first backoff rung: the failure means internal heap is exhausted, and a
+  // retry that succeeds immediately launches a TLS handshake.
+  static const unsigned long SLOT_SETUP_RETRY_INTERVAL = 60000;
   unsigned long _last_config_warning; // Throttle configuration mismatch warnings
   static const unsigned long CONFIG_WARNING_INTERVAL = 300000; // Log every 5 minutes max
 
@@ -419,7 +426,13 @@ private:
   bool ensureSlotAuthToken(int index); // Allocate this slot's JWT token buffer on first token creation
   void releaseSlotAuthToken(int index);// Free the token buffer (only with the client — see MQTTSlot)
   void destroySlotClients();           // Delete all persistent clients (shutdown only)
-  void setupSlot(int index);           // Configure and connect the slot's existing client
+  bool setupSlot(int index);           // Configure and connect the slot; false = not activated
+  // Single definition of "this slot holds one of the _max_active_slots positions":
+  // it is enabled and has been through a successful setupSlot(). Startup, the
+  // setup-retry path, and live reconfigure all gate on these so the cap cannot be
+  // exceeded by one route while another enforces it.
+  int activatedSlotCount() const;
+  bool canActivateSlot(int index) const;
   void teardownSlot(int index);        // Disconnect the slot's client (keeps the object alive)
   void maintainSlotConnections();      // Maintain all slot connections (token renewal, reconnect)
   void maintainSlotConnection(int index, unsigned long now_millis, unsigned long current_time, bool time_synced, bool& reconnect_attempted, bool& teardown_attempted);
