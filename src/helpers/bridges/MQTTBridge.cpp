@@ -692,7 +692,7 @@ MQTTBridge::MQTTBridge(NodePrefs *prefs, MQTTPrefs *obs, mesh::PacketManager *mg
     _slots[i].enabled = false;
     _slots[i].client = nullptr;
     _slots[i].preset = nullptr;
-    // auth_token[0] == '\0' after memset above — no valid token
+    // auth_token == nullptr after memset above — allocated on first token creation
     _slots[i].connected = false;
     _slots[i].initial_connect_done = false;
     _slots[i].token_expires_at = 0;
@@ -1674,21 +1674,52 @@ bool MQTTBridge::ensureSlotClient(int index) {
   return true;
 }
 
+// Allocate this slot's JWT token buffer. Called only from createSlotAuthToken(), the
+// sole writer, so a slot on a non-JWT preset (or no preset at all) never allocates.
+// Internal DRAM, matching where the buffer lived when it was inline in MQTTSlot.
+bool MQTTBridge::ensureSlotAuthToken(int index) {
+  if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return false;
+  MQTTSlot& slot = _slots[index];
+  slot.auth_token = static_cast<char*>(MQTTRuntimeBufferLifecycle::allocateIfMissing(
+      slot.auth_token, AUTH_TOKEN_SIZE, malloc));
+  if (slot.auth_token == nullptr) {
+    MQTT_DEBUG_PRINTLN("MQTT%d: out of memory allocating auth token", index + 1);
+    return false;
+  }
+  slot.auth_token[0] = '\0';
+  return true;
+}
+
+// Safe only once this slot's client is gone: setCredentials() gave the client this
+// pointer, and esp-mqtt re-reads it from _mqtt_cfg on any later connect() that
+// re-applies a dirtied config. See the MQTTSlot::auth_token comment.
+void MQTTBridge::releaseSlotAuthToken(int index) {
+  if (index < 0 || index >= RUNTIME_MQTT_SLOTS) return;
+  MQTTSlot& slot = _slots[index];
+  slot.auth_token = static_cast<char*>(
+      MQTTRuntimeBufferLifecycle::release(slot.auth_token, free));
+  slot.token_expires_at = 0;
+  slot.last_token_renewal = 0;
+}
+
 void MQTTBridge::destroySlotClients() {
   for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
     MQTTSlot& slot = _slots[i];
-    if (slot.client == nullptr) continue;
-
-    if (slot.client->connected()) {
-      slot.client->disconnect();
+    if (slot.client != nullptr) {
+      if (slot.client->connected()) {
+        slot.client->disconnect();
+      }
+      #ifdef ESP_PLATFORM
+      vTaskDelay(pdMS_TO_TICKS(50));
+      #else
+      delay(50);
+      #endif
+      delete slot.client;
+      slot.client = nullptr;
     }
-    #ifdef ESP_PLATFORM
-    vTaskDelay(pdMS_TO_TICKS(50));
-    #else
-    delay(50);
-    #endif
-    delete slot.client;
-    slot.client = nullptr;
+    // Unconditional: only now is the token unreachable from the client's stored
+    // config, and a token without a client would otherwise leak.
+    releaseSlotAuthToken(i);
   }
 }
 
@@ -1731,7 +1762,7 @@ void MQTTBridge::setupSlot(int index) {
     cfg->username = nullptr;
     cfg->password = nullptr;
     #endif
-    slot.auth_token[0] = '\0';
+    if (slot.auth_token) slot.auth_token[0] = '\0';
     slot.connected = false;
     slot.token_expires_at = 0;
     slot.last_token_renewal = 0;
@@ -1764,7 +1795,7 @@ void MQTTBridge::setupSlot(int index) {
     // Try to create token and connect (will succeed only if NTP synced)
     if (slot.preset->auth_type == MQTT_AUTH_JWT) {
       createSlotAuthToken(index);
-      if (slot.auth_token[0] != '\0') {
+      if (slot.auth_token && slot.auth_token[0] != '\0') {
         slot.client->setCredentials(_jwt_username, slot.auth_token);
       }
     } else if (slot.preset->auth_type == MQTT_AUTH_USERPASS) {
@@ -1875,9 +1906,9 @@ void MQTTBridge::setupSlot(int index) {
 
     // Custom slot authentication: JWT if audience is set, else username/password
     if (slot.audience[0] != '\0') {
-      // JWT auth for custom slot — create initial token (buffer is always inline)
+      // JWT auth for custom slot — create initial token (allocates the buffer)
       createSlotAuthToken(index);
-      if (slot.auth_token[0] != '\0') {
+      if (slot.auth_token && slot.auth_token[0] != '\0') {
         slot.client->setCredentials(_jwt_username, slot.auth_token);
       }
       MQTT_DEBUG_PRINTLN("MQTT%d custom broker using JWT auth (audience: %s)", index + 1, slot.audience);
@@ -1907,7 +1938,9 @@ void MQTTBridge::teardownSlot(int index) {
     #endif
   }
 
-  slot.auth_token[0] = '\0';
+  // Invalidate the token but keep the buffer: the client survives teardown and still
+  // holds this pointer in its config (see MQTTSlot::auth_token).
+  if (slot.auth_token) slot.auth_token[0] = '\0';
   slot.connected = false;
   slot.initial_connect_done = false;
   slot.broker_uri[0] = '\0';
@@ -2175,6 +2208,10 @@ bool MQTTBridge::createSlotAuthToken(int index) {
     audience = slot.audience;
   }
   if (!audience || audience[0] == '\0') return false;
+
+  // This slot is confirmed JWT, so it needs the token buffer. Allocated on first use
+  // and kept thereafter; every caller already treats false as "no usable token".
+  if (!ensureSlotAuthToken(index)) return false;
 
   // Ensure JWT username is set
   if (_jwt_username[0] == '\0') {
