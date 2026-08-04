@@ -3929,7 +3929,13 @@ bool MQTTBridge::syncTimeWithNTP(bool force, bool primary_only) {
     // and re-setup all JWT-authenticated slots so they get fresh tokens.
     if (_slots_setup_done && was_ntp_synced) {
       unsigned long current_time = (unsigned long)time(nullptr);
-      for (int i = 0; i < _max_active_slots; i++) {
+      // Every slot, not _max_active_slots: that is a count of positions, never an
+      // index bound. Which indices hold those positions is not contiguous — a slot can
+      // fail isSlotReady() or its setup and be passed over, leaving a higher index
+      // activated — so bounding by the cap silently skipped an activated slot and left
+      // it holding a JWT issued against the pre-correction clock. The guard below
+      // already excludes disabled, non-JWT, and clientless slots.
+      for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
         bool slot_jwt = (_slots[i].preset && _slots[i].preset->auth_type == MQTT_AUTH_JWT) ||
                         (!_slots[i].preset && _slots[i].audience[0] != '\0');
         if (_slots[i].enabled && slot_jwt && _slots[i].client) {
