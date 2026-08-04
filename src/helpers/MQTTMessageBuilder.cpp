@@ -96,6 +96,7 @@ int MQTTMessageBuilder::buildPacketMessage(
 }
 
 int MQTTMessageBuilder::buildRawMessage(
+  JsonDocument& doc,
   const char* origin,
   const char* origin_id,
   const char* timestamp,
@@ -104,7 +105,7 @@ int MQTTMessageBuilder::buildRawMessage(
   size_t buffer_size
 ) {
   return MQTTPayloadBuilder::buildRawMessage(
-      origin, origin_id, timestamp, raw, buffer, buffer_size);
+      doc, origin, origin_id, timestamp, raw, buffer, buffer_size);
 }
 
 int MQTTMessageBuilder::buildNeighborsMessage(
@@ -297,6 +298,7 @@ int MQTTMessageBuilder::buildPacketJSONFromRaw(
 }
 
 int MQTTMessageBuilder::buildRawJSON(
+  JsonDocument& doc,
   mesh::Packet* packet,
   const char* origin,
   const char* origin_id,
@@ -316,7 +318,7 @@ int MQTTMessageBuilder::buildRawJSON(
   char raw_hex[WIRE_HEX_SCRATCH_SIZE];
   packetToHex(packet, raw_hex, sizeof(raw_hex));
 
-  return buildRawMessage(origin, origin_id, timestamp, raw_hex, buffer, buffer_size);
+  return buildRawMessage(doc, origin, origin_id, timestamp, raw_hex, buffer, buffer_size);
 }
 
 const char* MQTTMessageBuilder::getRouteTypeString(int route_type) {
@@ -355,9 +357,7 @@ void MQTTMessageBuilder::packetToHex(mesh::Packet* packet, char* hex, size_t hex
   // Serialize full on-air/wire format using Packet::writeTo()
   // This includes header, transport codes (if present), path_len, path, and payload
   uint8_t raw_buf[WIRE_SCRATCH_SIZE];
-  // writeTo() neither bounds-checks nor can report an overrun (it returns uint8_t),
-  // so reject an over-long packet on getRawLength() before writing anything.
-  if (packet->getRawLength() > (int)sizeof(raw_buf)) return;
+  if (!canSerializePacket(packet, sizeof(raw_buf))) return;
   uint8_t raw_len = packet->writeTo(raw_buf);
   if (raw_len == 0) return;
   
