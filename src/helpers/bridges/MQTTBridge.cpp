@@ -2051,7 +2051,17 @@ void MQTTBridge::maintainSlotConnections() {
         setup_retry_this_cycle = true;
         MQTT_DEBUG_PRINTLN("MQTT%d retrying deferred setup (int_heap=%d)", i + 1,
                            (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-        if (setupSlot(i)) _last_slot_reconnect_ms = now_millis;
+        if (setupSlot(i)) {
+          // A successful setup ends in connect(), so it spends this cycle's single
+          // handshake allowance as well as arming the 15 s cross-slot guard. Without
+          // the local flag, a disconnected slot later in this same pass would start a
+          // second concurrent TLS handshake — the contention the guard exists to
+          // prevent, and most damaging here because a failed allocation is why we are
+          // retrying at all. A failed setup launches nothing and so spends only
+          // setup_retry_this_cycle.
+          _last_slot_reconnect_ms = now_millis;
+          reconnect_attempted_this_cycle = true;
+        }
       }
       continue;
     }
