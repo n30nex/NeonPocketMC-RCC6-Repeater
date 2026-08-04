@@ -1763,9 +1763,18 @@ bool MQTTBridge::setupSlot(int index) {
     return false;
   }
 
+  // Every failure below is a real attempt, so stamp it: the retry interval in
+  // maintainSlotConnections() measures from last_reconnect_attempt, which starts at 0
+  // and is re-zeroed by teardownSlot(). Left unstamped, the gate degenerates to
+  // "uptime >= SLOT_SETUP_RETRY_INTERVAL" and a failure past that point is retried on
+  // the very next maintenance pass — the same task iteration, for a live reconfigure.
+  // The reconnect ladder never reads this field for an unactivated slot (it is gated
+  // on initial_connect_done), so stamping here cannot perturb reconnect timing.
+
   // First setup for this slot allocates its persistent client; later ones reuse it.
   if (!ensureSlotClient(index)) {
     MQTT_DEBUG_PRINTLN("MQTT%d: client allocation failed - will retry", index + 1);
+    slot.last_reconnect_attempt = millis();
     return false;
   }
 
@@ -1829,6 +1838,7 @@ bool MQTTBridge::setupSlot(int index) {
     if (slot.preset->auth_type == MQTT_AUTH_JWT) {
       if (!createSlotAuthToken(index) || !slot.auth_token || slot.auth_token[0] == '\0') {
         MQTT_DEBUG_PRINTLN("MQTT%d: no usable JWT token - will retry", index + 1);
+        slot.last_reconnect_attempt = millis();
         return false;
       }
       slot.client->setCredentials(_jwt_username, slot.auth_token);
@@ -1943,6 +1953,7 @@ bool MQTTBridge::setupSlot(int index) {
       // JWT auth for custom slot — same rule as the preset JWT path above.
       if (!createSlotAuthToken(index) || !slot.auth_token || slot.auth_token[0] == '\0') {
         MQTT_DEBUG_PRINTLN("MQTT%d: no usable JWT token - will retry", index + 1);
+        slot.last_reconnect_attempt = millis();
         return false;
       }
       slot.client->setCredentials(_jwt_username, slot.auth_token);
