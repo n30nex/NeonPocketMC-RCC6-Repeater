@@ -999,7 +999,9 @@ void MQTTBridge::begin() {
   // Non-ESP32: Initialize WiFi directly (no task)
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
+#if ESP_ARDUINO_VERSION_MAJOR < 3
   WiFi.setAutoConnect(true);
+#endif
   WiFi.begin(_obs->wifi_ssid, _obs->wifi_password);
 
   // NOTE: Slot setup deferred until after NTP sync in loop()
