@@ -23,6 +23,14 @@ The established repeater build remains unchanged. Room Server is available as fo
 | `heltec_rcc6_room_server_full_headless` | Yes | Off | Yes | Yes | Recommended connected server |
 | `heltec_rcc6_room_server_full_tft` | Yes | Yes | Yes | Yes | **Experimental**; delayed 32 KB heap gate |
 
+### TFT demo-scene startup
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/n30nex/NeonPocketMC/main/docs/images/demoscene/neonpocket-splash.gif" alt="NeonPocketMC animated demo-scene boot sequence" width="660">
+</p>
+
+The two TFT Room Server profiles use this shared visual sequence with Room Server status text. The GIF is a direct, checksum-verified RCC6 framebuffer capture. Headless Room Server and repeater/observer images intentionally show no animation and keep the TFT off.
+
 “Minimal” means LoRa Room Server plus USB CLI only: it does not compile the Web/AP/MQTT feature stack. “Full” adds the proven AP/STA onboarding flow, authenticated LAN dashboard, and MQTT observer/ingester using the existing broker presets and credential machinery. MQTT remains one-way observation: broker traffic is never injected into the mesh.
 
 The TFT variants use the RCC6 native 220x128 framebuffer driver with band-delta flushing and the animated NeonPocketMC startup mark. Their room snapshot shows active/registered clients, accepted posts, RF signal/age/errors, queue pressure, raw battery voltage, and heap. A provisional warning appears at or below 3.45 V and clears at or above 3.60 V; no automatic low-voltage shutdown is enabled before physical ADC calibration. Full TFT also shows Wi-Fi, MQTT slot health, free/minimum/max-allocation heap, and an `EXP` marker.
