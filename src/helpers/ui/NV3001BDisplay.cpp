@@ -348,6 +348,30 @@ void NV3001BDisplay::writeColor(uint16_t rgb, uint32_t count) {
 }
 
 #if NV3001B_USE_FRAMEBUFFER
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+static uint64_t hashFramebufferPixels(const uint8_t* pixels, size_t count) {
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  while (count--) {
+    hash ^= *pixels++;
+    hash *= 0x100000001b3ULL;
+  }
+  return hash;
+}
+
+bool NV3001BDisplay::framebufferPaletteIndex(uint16_t rgb, uint8_t& index) {
+  for (uint16_t i = 0; i < framebuffer_palette_size; i++) {
+    if (framebuffer_palette[i] == rgb) {
+      index = static_cast<uint8_t>(i);
+      return true;
+    }
+  }
+  if (framebuffer_palette_size == framebuffer_palette_capacity) return false;
+
+  index = static_cast<uint8_t>(framebuffer_palette_size);
+  framebuffer_palette[framebuffer_palette_size++] = rgb;
+  return true;
+}
+#else
 static uint64_t hashFramebufferPixels(const uint16_t* pixels, size_t count) {
   uint64_t hash = 0xcbf29ce484222325ULL;
   while (count--) {
@@ -359,6 +383,7 @@ static uint64_t hashFramebufferPixels(const uint16_t* pixels, size_t count) {
   }
   return hash;
 }
+#endif
 
 void NV3001BDisplay::flushFramebuffer() {
   if (!framebuffer || !is_on) return;
@@ -381,8 +406,13 @@ void NV3001BDisplay::flushFramebuffer() {
     digitalWrite(PIN_TFT_DC, HIGH);
     const size_t end = first + count;
     for (size_t i = first; i < end; i++) {
-      transferByte(framebuffer[i] >> 8);
-      transferByte(framebuffer[i] & 0xff);
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+      const uint16_t pixel = framebuffer_palette[framebuffer[i]];
+#else
+      const uint16_t pixel = framebuffer[i];
+#endif
+      transferByte(pixel >> 8);
+      transferByte(pixel & 0xff);
     }
     digitalWrite(PIN_TFT_CS, HIGH);
     endTransfer();
@@ -528,10 +558,26 @@ void NV3001BDisplay::fillPhysicalRect(int x, int y, int w, int h) {
 
 #if NV3001B_USE_FRAMEBUFFER
   if (framebuffer) {
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    uint8_t index;
+    if (!framebufferPaletteIndex(color, index)) {
+      Serial.println("NV3001B: indexed framebuffer palette exhausted");
+      writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
+      writeOptionalPin(PIN_TFT_EN, !PIN_TFT_EN_ACTIVE);
+      is_on = false;
+      if (periph_power) periph_power->release();
+      return;
+    }
+    for (int row = 0; row < h; row++) {
+      uint8_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
+      memset(dest, index, w);
+    }
+#else
     for (int row = 0; row < h; row++) {
       uint16_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
       for (int col = 0; col < w; col++) dest[col] = color;
     }
+#endif
     return;
   }
 #endif
@@ -605,14 +651,18 @@ bool NV3001BDisplay::begin() {
   if (!framebuffer_allocation_attempted) {
     framebuffer_allocation_attempted = true;
     const size_t pixels = (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT;
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    framebuffer = static_cast<uint8_t*>(calloc(pixels, sizeof(uint8_t)));
+#else
     framebuffer = static_cast<uint16_t*>(calloc(pixels, sizeof(uint16_t)));
+#endif
     Serial.print("NV3001B: framebuffer ");
     Serial.print(framebuffer ? "allocated (" : "allocation failed (");
-    Serial.print((unsigned)(pixels * sizeof(uint16_t)));
+    Serial.print((unsigned)(pixels * sizeof(*framebuffer)));
     Serial.println(" bytes)");
   } else if (framebuffer) {
     memset(framebuffer, 0,
-        (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT * sizeof(uint16_t));
+        (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT * sizeof(*framebuffer));
   }
   if (!framebuffer) {
     writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
@@ -621,6 +671,10 @@ bool NV3001BDisplay::begin() {
     if (periph_power) periph_power->release();
     return false;
   }
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+  framebuffer_palette[0] = 0x0000;
+  framebuffer_palette_size = 1;
+#endif
   framebuffer_hashes_valid = false;
   framebuffer_flushes_since_full = 0;
 #else
