@@ -1,5 +1,6 @@
 #include "UITask.h"
 #include "MyMesh.h"
+#include "NeonPocketBoot.h"
 
 #include <Arduino.h>
 #include <string.h>
@@ -20,44 +21,8 @@
 #include <helpers/esp32/WebConfigServer.h>
 #endif
 
-#define BOOT_SCREEN_MILLIS 3000
-
-static constexpr ColorVal BRAND_CYAN = 0x07FF;
-static constexpr ColorVal BRAND_COBALT = 0x225F;
-static constexpr ColorVal BRAND_LIME = 0x87E0;
-static constexpr ColorVal BRAND_YELLOW = 0xFFE0;
-static constexpr ColorVal BRAND_WHITE = 0xFFFF;
 static constexpr uint16_t ROOM_LOW_BATTERY_MV = 3450;
 static constexpr uint16_t ROOM_LOW_BATTERY_CLEAR_MV = 3600;
-
-static void drawBrandMark(DisplayDriver* display, int x, int y, uint8_t phase) {
-  if (phase >= 1) {
-    display->setColor(BRAND_CYAN);
-    display->drawRect(x, y + 8, 40, 24);
-  }
-  if (phase >= 2) {
-    display->setColor(BRAND_COBALT);
-    display->fillRect(x + 11, y + 26, 18, 2);
-    display->fillRect(x + 13, y + 23, 3, 2);
-    display->fillRect(x + 15, y + 20, 3, 2);
-    display->fillRect(x + 17, y + 17, 3, 2);
-    display->fillRect(x + 21, y + 17, 3, 2);
-    display->fillRect(x + 23, y + 20, 3, 2);
-    display->fillRect(x + 25, y + 23, 3, 2);
-  }
-  if (phase >= 3) {
-    display->setColor(BRAND_LIME);
-    display->fillRect(x + 18, y + 13, 5, 5);
-    display->fillRect(x + 8, y + 24, 5, 5);
-    display->fillRect(x + 28, y + 24, 5, 5);
-  }
-  if (phase >= 4) {
-    display->setColor(BRAND_CYAN);
-    display->fillRect(x + 7, y + 3, 4, 2);
-    display->fillRect(x + 19, y, 2, 5);
-    display->fillRect(x + 30, y + 2, 3, 3);
-  }
-}
 
 void UITask::begin(MyMesh* mesh, NodePrefs* node_prefs,
                    const char* build_date, const char* firmware_version) {
@@ -88,31 +53,8 @@ void UITask::renderCard(int x, int width, const char* label,
 
 void UITask::renderCurrScreen() {
   const unsigned long elapsed = millis() - _started_at;
-  if (elapsed < BOOT_SCREEN_MILLIS) {
-    uint8_t phase = 1 + elapsed / 180;
-    if (phase > 4) phase = 4;
-    const int progress_width = 164 * elapsed / BOOT_SCREEN_MILLIS;
-    drawBrandMark(_display, (_display->width() - 40) / 2, 6, phase);
-    if (elapsed >= 240) {
-      _display->setTextSize(2);
-      _display->setColor(BRAND_LIME);
-      _display->drawTextCentered(_display->width() / 2, 43, "NEONPOCKETMC");
-    }
-    if (elapsed >= 480) {
-      _display->setTextSize(1);
-      _display->setColor(BRAND_WHITE);
-      _display->drawTextCentered(_display->width() / 2, 65, "MESHCORE ROOM SERVER");
-    }
-    _display->setColor(BRAND_COBALT);
-    _display->drawRect(26, 82, 168, 8);
-    _display->setColor(BRAND_YELLOW);
-    _display->fillRect(28, 84, progress_width, 4);
-    _display->setTextSize(2);
-    _display->setTextSize(1);
-    _display->setColor(BRAND_WHITE);
-    _display->drawTextCentered(_display->width() / 2, 99, _version_info);
-    _display->setColor(BRAND_CYAN);
-    _display->drawTextCentered(_display->width() / 2, 114, NEONPOCKET_ROOM_SERVER_PROFILE);
+  if (elapsed < NeonPocketBoot::DURATION_MILLIS) {
+    NeonPocketBoot::draw(*_display, elapsed, "MESHCORE ROOM SERVER", _version_info);
     return;
   }
 
@@ -259,11 +201,13 @@ void UITask::loop() {
 #endif
 
   if (!_display->isOn()) return;
-  if (millis() >= _next_refresh) {
-    _display->startFrame();
+  const unsigned long now = millis();
+  if ((int32_t)(now - _next_refresh) >= 0) {
+    const bool booting = now - _started_at < NeonPocketBoot::DURATION_MILLIS;
+    _display->startFrame(booting ? NeonPocketBoot::BG : UIColor::window_bkg);
     renderCurrScreen();
     _display->endFrame();
-    _next_refresh = millis() + 1000;
+    _next_refresh = millis() + (booting ? NeonPocketBoot::FRAME_MILLIS : 1000);
   }
   if ((int32_t)(millis() - _auto_off) >= 0) _display->turnOff();
 }

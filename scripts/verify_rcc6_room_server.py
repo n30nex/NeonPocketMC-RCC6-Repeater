@@ -69,8 +69,14 @@ def main() -> None:
             "WiFi.disconnect(true", "next_memory_probe = millis() + 30000")
 
     ui_cpp = read("examples/simple_room_server/UITask.cpp")
-    require(ui_cpp, "drawBrandMark", "NEONPOCKETMC", "MESHCORE ROOM SERVER",
-            "NEONPOCKET ROOM", "BOOT_SCREEN_MILLIS")
+    boot_h = read("examples/simple_room_server/NeonPocketBoot.h")
+    require(ui_cpp, "NeonPocketBoot::draw", "NeonPocketBoot::FRAME_MILLIS",
+            "NEONPOCKET ROOM")
+    require(boot_h, "DURATION_MILLIS = 3200", "FRAME_MILLIS = 120",
+            "NEONPOCKETMC", "VECTOR BOOT", "LINKING MESH", "WAKING RADIO",
+            "NEON ONLINE", "MAGENTA", "drawPocket")
+    if "Starting room server..." in main_cpp:
+        raise AssertionError("generic loading frame must not precede NeonPocket boot")
 
     mesh_h = read("examples/simple_room_server/MyMesh.h")
     mesh_cpp = read("examples/simple_room_server/MyMesh.cpp")

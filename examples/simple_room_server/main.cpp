@@ -18,6 +18,7 @@
 #endif
 
 #ifdef DISPLAY_CLASS
+  #include "NeonPocketBoot.h"
   #include "UITask.h"
   static UITask ui_task(display);
 #endif
@@ -125,9 +126,9 @@ void setup() {
   DisplayDriver* active_display = NULL;
   if (display.begin()) {
     active_display = &display;
-    active_display->startFrame();
-    active_display->setCursor(0, 0);
-    active_display->print("Starting room server...");
+    active_display->startFrame(NeonPocketBoot::BG);
+    NeonPocketBoot::draw(*active_display, 0, "MESHCORE ROOM SERVER",
+                         FIRMWARE_VERSION);
     active_display->endFrame();
   } else {
     Serial.println("FATAL display: required display initialization failed");
