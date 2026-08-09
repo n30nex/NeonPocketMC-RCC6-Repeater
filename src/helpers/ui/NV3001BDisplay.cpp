@@ -126,6 +126,42 @@ ColorVal UIColor::title_txt = 0xFFFF;
 ColorVal UIColor::secondary_txt = (18 << 11) | (36 << 5) | 18;  // mid-gray
 ColorVal UIColor::warning_txt = 0xFD20;
 
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+// Every color used by the RCC6 room UI is represented exactly. Unknown colors
+// fall back to the nearest entry, keeping the framebuffer at one byte/pixel.
+static constexpr uint16_t framebuffer_palette[] = {
+  0x0000, 0xFFFF, 0x07FF, 0x225F, 0x87E0,
+  0xFFE0, 0x001F, 0x001A, 0x9492, 0xFD20,
+};
+static_assert(sizeof(framebuffer_palette) / sizeof(framebuffer_palette[0]) <= 256,
+              "indexed framebuffer palette must fit in one byte");
+
+static uint8_t framebufferPaletteIndex(uint16_t rgb) {
+  const size_t count = sizeof(framebuffer_palette) / sizeof(framebuffer_palette[0]);
+  for (size_t i = 0; i < count; i++) {
+    if (framebuffer_palette[i] == rgb) return (uint8_t)i;
+  }
+
+  const int red = (rgb >> 11) & 0x1f;
+  const int green = (rgb >> 5) & 0x3f;
+  const int blue = rgb & 0x1f;
+  uint16_t best_distance = 0xffff;
+  uint8_t best = 0;
+  for (size_t i = 0; i < count; i++) {
+    const uint16_t candidate = framebuffer_palette[i];
+    const int dr = red - ((candidate >> 11) & 0x1f);
+    const int dg = green - ((candidate >> 5) & 0x3f);
+    const int db = blue - (candidate & 0x1f);
+    const uint16_t distance = (uint16_t)(dr * dr + dg * dg + db * db);
+    if (distance < best_distance) {
+      best_distance = distance;
+      best = (uint8_t)i;
+    }
+  }
+  return best;
+}
+#endif
+
 static int scaleX(int x) {
   return (int)(x * DISPLAY_SCALE_X);
 }
@@ -348,6 +384,16 @@ void NV3001BDisplay::writeColor(uint16_t rgb, uint32_t count) {
 }
 
 #if NV3001B_USE_FRAMEBUFFER
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+static uint64_t hashFramebufferPixels(const uint8_t* pixels, size_t count) {
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  while (count--) {
+    hash ^= *pixels++;
+    hash *= 0x100000001b3ULL;
+  }
+  return hash;
+}
+#else
 static uint64_t hashFramebufferPixels(const uint16_t* pixels, size_t count) {
   uint64_t hash = 0xcbf29ce484222325ULL;
   while (count--) {
@@ -359,6 +405,7 @@ static uint64_t hashFramebufferPixels(const uint16_t* pixels, size_t count) {
   }
   return hash;
 }
+#endif
 
 void NV3001BDisplay::flushFramebuffer() {
   if (!framebuffer || !is_on) return;
@@ -381,8 +428,13 @@ void NV3001BDisplay::flushFramebuffer() {
     digitalWrite(PIN_TFT_DC, HIGH);
     const size_t end = first + count;
     for (size_t i = first; i < end; i++) {
-      transferByte(framebuffer[i] >> 8);
-      transferByte(framebuffer[i] & 0xff);
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+      const uint16_t rgb = framebuffer_palette[framebuffer[i]];
+#else
+      const uint16_t rgb = framebuffer[i];
+#endif
+      transferByte(rgb >> 8);
+      transferByte(rgb & 0xff);
     }
     digitalWrite(PIN_TFT_CS, HIGH);
     endTransfer();
@@ -528,10 +580,18 @@ void NV3001BDisplay::fillPhysicalRect(int x, int y, int w, int h) {
 
 #if NV3001B_USE_FRAMEBUFFER
   if (framebuffer) {
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    const uint8_t indexed_color = framebufferPaletteIndex(color);
+    for (int row = 0; row < h; row++) {
+      uint8_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
+      memset(dest, indexed_color, (size_t)w);
+    }
+#else
     for (int row = 0; row < h; row++) {
       uint16_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
       for (int col = 0; col < w; col++) dest[col] = color;
     }
+#endif
     return;
   }
 #endif
@@ -605,14 +665,18 @@ bool NV3001BDisplay::begin() {
   if (!framebuffer_allocation_attempted) {
     framebuffer_allocation_attempted = true;
     const size_t pixels = (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT;
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    framebuffer = static_cast<uint8_t*>(calloc(pixels, sizeof(uint8_t)));
+#else
     framebuffer = static_cast<uint16_t*>(calloc(pixels, sizeof(uint16_t)));
+#endif
     Serial.print("NV3001B: framebuffer ");
     Serial.print(framebuffer ? "allocated (" : "allocation failed (");
-    Serial.print((unsigned)(pixels * sizeof(uint16_t)));
+    Serial.print((unsigned)(pixels * sizeof(*framebuffer)));
     Serial.println(" bytes)");
   } else if (framebuffer) {
     memset(framebuffer, 0,
-        (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT * sizeof(uint16_t));
+        (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT * sizeof(*framebuffer));
   }
   if (!framebuffer) {
     writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);

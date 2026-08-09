@@ -15,6 +15,14 @@
   #define NV3001B_USE_FRAMEBUFFER 0
 #endif
 
+#ifndef NV3001B_USE_INDEXED_FRAMEBUFFER
+  #define NV3001B_USE_INDEXED_FRAMEBUFFER 0
+#endif
+
+#if NV3001B_USE_INDEXED_FRAMEBUFFER && !NV3001B_USE_FRAMEBUFFER
+  #error "NV3001B_USE_INDEXED_FRAMEBUFFER requires NV3001B_USE_FRAMEBUFFER"
+#endif
+
 #if NV3001B_USE_FAST_GPIO && !NV3001B_USE_SOFTWARE_SPI
   #error "NV3001B_USE_FAST_GPIO requires NV3001B_USE_SOFTWARE_SPI"
 #endif
@@ -58,7 +66,11 @@ class NV3001BDisplay : public DisplayDriver {
   int cursor_x = 0;
   int cursor_y = 0;
 #if NV3001B_USE_FRAMEBUFFER
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+  uint8_t* framebuffer = nullptr;
+#else
   uint16_t* framebuffer = nullptr;
+#endif
   bool framebuffer_allocation_attempted = false;
   static constexpr uint8_t framebuffer_band_rows = 8;
   static constexpr uint16_t framebuffer_max_dimension =
