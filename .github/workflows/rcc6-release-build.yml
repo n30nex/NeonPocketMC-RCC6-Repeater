@@ -58,6 +58,8 @@ jobs:
           readme = Path("README.md").read_text(encoding="utf-8")
           assert "3-byte advert" in readme
           assert "Configure-RCC6-Windows.cmd" in readme
+          assert "get wifi.status" in readme
+          assert "SETUP_AND_HELP.md" in readme
           PY
 
       - name: Build the headless RCC6 observer
@@ -93,16 +95,47 @@ jobs:
               "NeonPocketMC RCC6 Repeater Setup\n"
               "=================================\n\n"
               "1. Keep USB and a tuned LoRa antenna connected.\n"
-              "2. Windows: double-click Configure-RCC6-Windows.cmd\n"
-              "3. Linux: run sh configure-rcc6-linux.sh\n"
-              "4. Follow the numbered questions. Do not disconnect until the wizard says it is safe.\n"
+              "2. Flash the application image at 0x10000. Do not erase flash.\n"
+              "3. Windows: double-click Configure-RCC6-Windows.cmd\n"
+              "4. Linux: run sh configure-rcc6-linux.sh\n"
+              "5. Follow the numbered questions. Do not disconnect until the wizard says it is safe.\n\n"
+              "OPEN THE DASHBOARD\n"
+              "- The wizard prints the exact http://DEVICE-IP/ address.\n"
+              "- Later, use a 115200-baud USB terminal and run: get wifi.status\n"
+              "- Use http://, not https://, from a device on the same local network.\n"
+              "- Sign in with the admin password chosen during setup.\n"
+              "- A new/unconfigured unit provides MeshCore-Setup-XXXX at http://192.168.4.1/\n\n"
+              "RECOVERY\n"
+              "- If Wi-Fi says disconnected, keep USB attached and rerun the configurator.\n"
+              "- The RCC6 requires a local 2.4 GHz Wi-Fi network.\n"
+              "- Router DHCP can change the IP; reserve it in the router if needed.\n"
+              "- Read SETUP_AND_HELP.md for radio, MQTT, broker, flashing, and troubleshooting help.\n"
+          )
+          setup_help = Path("README.md").read_text(encoding="utf-8")
+          build_info = (
+              "Git commit: ${{ github.event.pull_request.head.sha || github.sha }}\n"
+              "Target: heltec_rcc6_repeater_observer_mqtt\n"
+              "MeshCore base: v1.17.0\n"
+              "Observer base: agessaman/MeshCore observer-firmware b744b42aabb454b277fe133214c7d93d23da484b\n"
           )
           (out / "QUICK_START.txt").write_text(quick_start, encoding="utf-8")
+          (out / "SETUP_AND_HELP.md").write_text(setup_help, encoding="utf-8")
+          (out / "BUILD_INFO.txt").write_text(build_info, encoding="utf-8")
           with zipfile.ZipFile(out / configurator_name, "w", zipfile.ZIP_DEFLATED) as archive:
               archive.write("Configure-RCC6-Windows.cmd", "Configure-RCC6-Windows.cmd")
               archive.write("configure-rcc6-linux.sh", "configure-rcc6-linux.sh")
               archive.write("scripts/configure_rcc6.py", "scripts/configure_rcc6.py")
               archive.writestr("QUICK_START.txt", quick_start)
+              archive.writestr("SETUP_AND_HELP.md", setup_help)
+              archive.writestr("BUILD_INFO.txt", build_info)
+
+          with zipfile.ZipFile(out / configurator_name) as archive:
+              required = {
+                  "Configure-RCC6-Windows.cmd", "configure-rcc6-linux.sh",
+                  "scripts/configure_rcc6.py", "QUICK_START.txt",
+                  "SETUP_AND_HELP.md", "BUILD_INFO.txt",
+              }
+              assert required <= set(archive.namelist()), "incomplete configurator package"
 
           files = [out / app_name, out / recovery_name, out / configurator_name]
           sums = "".join(
@@ -110,13 +143,6 @@ jobs:
               for path in files
           )
           (out / "SHA256SUMS.txt").write_text(sums, encoding="ascii")
-          (out / "BUILD_INFO.txt").write_text(
-              "Git commit: ${{ github.event.pull_request.head.sha || github.sha }}\n"
-              "Target: heltec_rcc6_repeater_observer_mqtt\n"
-              "MeshCore base: v1.17.0\n"
-              "Observer base: agessaman/MeshCore observer-firmware b744b42aabb454b277fe133214c7d93d23da484b\n",
-              encoding="utf-8",
-          )
           PY
 
       - name: Upload exact RC2 candidate

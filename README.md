@@ -24,7 +24,7 @@ This project is based on MeshCore 1.17.0 and the production MQTT observer work f
 
 1. Attach a tuned LoRa antenna before powering or transmitting.
 2. Flash the RC2 application image at `0x10000` and leave USB connected.
-3. Download this repository (or the configurator ZIP from the RC2 release).
+3. Download this repository (or the configurator ZIP from the [RC2 release](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.0.0-rc.2)).
 4. **Windows:** double-click `Configure-RCC6-Windows.cmd`.
 5. **Linux:** open the downloaded folder in a terminal and run `sh configure-rcc6-linux.sh`.
 
@@ -51,7 +51,29 @@ Once Wi-Fi is configured, the authenticated dashboard starts automatically after
 http://DEVICE-IP/
 ```
 
-The USB wizard prints `DEVICE-IP`. It can also be recovered later over USB with `get wifi.status`. Sign in with the device admin password.
+The USB wizard prints `DEVICE-IP`. Sign in with the device admin password.
+
+### Find the device on your local network
+
+Keep USB connected until the dashboard opens successfully.
+
+1. The guided configurator prints a line such as `Web dashboard: http://192.168.0.39/` after the RCC6 joins Wi-Fi.
+2. If that window was closed, open a 115200-baud USB serial terminal, press Enter, and run:
+
+   ```text
+   get wifi.status
+   ```
+
+   A connected device replies with its exact address, signal strength, and Wi-Fi uptime:
+
+   ```text
+   connected, IP: 192.168.0.39, RSSI: -25 dBm, uptime: 1m 4s
+   ```
+
+3. Open `http://DEVICE-IP/` from a phone or computer on the same local network. Use `http://`, not `https://`, and sign in with the admin password selected during setup.
+4. If USB is unavailable, look in the router's DHCP/client list for the device that most recently joined.
+
+The address is assigned by the router and can change. Create a DHCP reservation in the router if the repeater should always use the same address.
 
 The phone/desktop dashboard includes:
 
@@ -65,6 +87,19 @@ The phone/desktop dashboard includes:
 - guided radio/Wi-Fi/MQTT editing, all built-in broker choices, an advanced CLI, and safe reboot controls.
 
 The setup AP is open, matching upstream behavior. Provision it at close range on a trusted network and change the default admin password immediately. The LAN dashboard uses plain HTTP with an application login, so operate it only on a trusted local network or through a trusted VPN; do not expose port 80 to the public Internet.
+
+### Quick troubleshooting
+
+| Symptom | What to do |
+|---|---|
+| `get wifi.status` says `disconnected` | Keep USB connected and rerun the supplied configurator. Confirm the SSID is a local 2.4 GHz network and re-enter its password. |
+| The IP answers nowhere | Confirm the phone/computer is on the same LAN, enter `http://` explicitly, temporarily disconnect a VPN, and check that the router is not using wireless client isolation. |
+| The IP changed | Run `get wifi.status` again or check the router's DHCP/client list, then add a DHCP reservation. |
+| The admin password is forgotten | Rerun the USB configurator, or use a 115200-baud terminal and enter `password NEW-PASSWORD`, then `reboot`. |
+| MQTT is not publishing | Run `get mqtt.status`; confirm Wi-Fi, broker presets, required broker credentials, and the configured IATA region. |
+| Setup was never completed | Join `MeshCore-Setup-XXXX` and open [http://192.168.4.1/](http://192.168.4.1/), or use the supplied USB configurator. |
+
+The release's configurator ZIP contains this complete guide as `SETUP_AND_HELP.md`, so it remains available offline after download.
 
 ## Manual setup and recovery
 
