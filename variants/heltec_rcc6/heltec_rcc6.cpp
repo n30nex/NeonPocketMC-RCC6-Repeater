@@ -8,14 +8,16 @@ void HeltecRCC6Board::begin() {
   pinMode(PIN_ADC_CTRL, OUTPUT);
   digitalWrite(PIN_ADC_CTRL, LOW);
 
-  // This observer image is intentionally headless. Keep the attached TFT and
-  // its backlight powered down so RAM and battery are spent on LoRa/Wi-Fi/MQTT.
+  // Headless images keep the attached TFT hard-off. Display builds leave these
+  // pins to NV3001BDisplay, which owns panel reset, power, and backlight timing.
+#ifndef HELTEC_RCC6_WITH_DISPLAY
   pinMode(PIN_TFT_CS, OUTPUT);
   digitalWrite(PIN_TFT_CS, HIGH);
   pinMode(PIN_TFT_EN, OUTPUT);
   digitalWrite(PIN_TFT_EN, HIGH);
   pinMode(PIN_TFT_BL, OUTPUT);
   digitalWrite(PIN_TFT_BL, LOW);
+#endif
 
   if (esp_reset_reason() == ESP_RST_DEEPSLEEP) {
     gpio_hold_dis((gpio_num_t)P_LORA_NSS);

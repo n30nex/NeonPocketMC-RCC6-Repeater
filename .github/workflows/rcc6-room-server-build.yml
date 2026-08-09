@@ -1,0 +1,93 @@
+name: RCC6 Room Server Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - codex/**
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  static-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - name: Verify profile and configuration contracts
+        run: |
+          python scripts/verify_rcc6_room_server.py
+          python scripts/configure_rcc6.py --self-test
+
+  firmware:
+    needs: static-contracts
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - heltec_rcc6_room_server_minimal_headless
+          - heltec_rcc6_room_server_minimal_tft
+          - heltec_rcc6_room_server_full_headless
+          - heltec_rcc6_room_server_full_tft
+          - heltec_rcc6_repeater_observer_mqtt
+
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - name: Set up build environment
+        uses: ./.github/actions/setup-build-environment
+
+      - name: Build ${{ matrix.environment }}
+        run: pio run -e ${{ matrix.environment }} -t mergebin
+
+      - name: Verify RCC6 images
+        if: startsWith(matrix.environment, 'heltec_rcc6_room_server_')
+        shell: bash
+        run: |
+          build=".pio/build/${{ matrix.environment }}"
+          test -s "$build/firmware.bin"
+          test -s "$build/firmware-merged.bin"
+          test -s "$build/firmware.elf"
+          python - "$build/firmware.bin" "$build/firmware-merged.bin" <<'PY'
+          import pathlib, sys
+          app = pathlib.Path(sys.argv[1]).read_bytes()
+          merged = pathlib.Path(sys.argv[2]).read_bytes()
+          assert app[0] == 0xE9, "invalid ESP application image"
+          assert app[2] == 0x02, "RCC6 application image is not DIO"
+          assert merged[0x10000:0x10000 + len(app)] == app, "merged app mismatch"
+          assert len(merged) < 0xC90000, "merged image reaches the SPIFFS data partition"
+          PY
+          sha256sum "$build/firmware.bin" "$build/firmware-merged.bin" "$build/firmware.elf" > "$build/SHA256SUMS"
+
+      - name: Upload exact room-server candidate
+        if: startsWith(matrix.environment, 'heltec_rcc6_room_server_')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.environment }}-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .pio/build/${{ matrix.environment }}/firmware.bin
+            .pio/build/${{ matrix.environment }}/firmware-merged.bin
+            .pio/build/${{ matrix.environment }}/firmware.elf
+            .pio/build/${{ matrix.environment }}/SHA256SUMS

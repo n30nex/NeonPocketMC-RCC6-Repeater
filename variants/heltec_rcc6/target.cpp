@@ -12,6 +12,11 @@ WRAPPER_CLASS radio_driver(radio, board);
 ESP32RTCClock rtc_clock;
 SensorManager sensors;
 
+#ifdef DISPLAY_CLASS
+DISPLAY_CLASS display;
+MomentaryButton user_btn(PIN_USER_BTN, 1000, true);
+#endif
+
 bool radio_init() {
   rtc_clock.begin();
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);

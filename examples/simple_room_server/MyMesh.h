@@ -106,6 +106,30 @@ struct NeighbourInfo {
   int8_t snr; // multiplied by 4, user should divide to get float value
 };
 
+struct RoomSnapshot {
+  uint16_t clients;
+  uint16_t active_clients;
+  uint16_t batt_mv;
+  uint16_t posts;
+  uint16_t pushes;
+  uint32_t rf_rx;
+  uint32_t rf_tx;
+  uint32_t rf_errors;
+  uint32_t last_rx_age_s;
+  uint32_t heap_free;
+  uint32_t heap_min;
+  uint32_t heap_max_alloc;
+  uint16_t error_flags;
+  uint16_t tx_queue;
+  int16_t noise;
+  int16_t rssi;
+  float snr;
+  uint8_t radio_state;
+  int8_t wifi_rssi;
+  uint8_t mqtt_slots_ok;
+  uint8_t mqtt_slots_total;
+};
+
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks
 #ifdef WITH_WEBCONFIG
     , public WebConfigServer::Callbacks
@@ -281,6 +305,7 @@ public:
   const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
   const char* getRole() override { return FIRMWARE_ROLE; }
   const char* getNodeName() { return _prefs.node_name; }
+  void getRoomSnapshot(RoomSnapshot& snapshot);
   NodePrefs* getNodePrefs() {
     return &_prefs;
   }
@@ -465,6 +490,19 @@ public:
 
   // WebConfigServer::Callbacks - all invoked from tick() on the loop task
   void execCommand(char* cmd, char* reply) override {
+#ifdef NEONPOCKET_RCC6_ROOM_SERVER
+    const char* command = cmd;
+    while (*command == ' ') command++;
+    // The authenticated dashboard may configure/inspect the node, but it is
+    // not a content-injection, ACL-mutation, or factory-erase API. Those room
+    // operations remain RF-protocol or physical USB-serial actions.
+    if (strncmp(command, "room.post", 9) == 0 ||
+        strncmp(command, "setperm ", 8) == 0 ||
+        strcmp(command, "erase") == 0) {
+      strcpy(reply, "Err - command requires USB serial or the room RF protocol");
+      return;
+    }
+#endif
     handleCommand(0, cmd, reply);
   }
   void rebootNow() override {
