@@ -37,6 +37,7 @@ jobs:
 
       - name: Verify RCC6 defaults and broker parity
         run: |
+          python scripts/configure_rcc6.py --self-test
           python - <<'PY'
           import re
           from pathlib import Path
@@ -51,6 +52,12 @@ jobs:
           config = Path("variants/heltec_rcc6/platformio.ini").read_text(encoding="utf-8")
           assert 'MQTT_DEFAULT_SLOT1_PRESET=\'"meshcore-ca-1"\'' in config
           assert 'MQTT_DEFAULT_SLOT2_PRESET=\'"meshcore-ca-2"\'' in config
+          assert 'DEFAULT_PATH_HASH_MODE=2' in config
+          assert 'WEBCONFIG_AUTO_LAN=1' in config
+
+          readme = Path("README.md").read_text(encoding="utf-8")
+          assert "3-byte advert" in readme
+          assert "Configure-RCC6-Windows.cmd" in readme
           PY
 
       - name: Build the headless RCC6 observer
@@ -58,10 +65,11 @@ jobs:
           pio run -e heltec_rcc6_repeater_observer_mqtt
           pio run -e heltec_rcc6_repeater_observer_mqtt -t mergebin
 
-      - name: Verify binary layout and package RC1
+      - name: Verify binary layout and package RC2
         run: |
           python - <<'PY'
           import hashlib
+          import zipfile
           from pathlib import Path
 
           build = Path(".pio/build/heltec_rcc6_repeater_observer_mqtt")
@@ -75,12 +83,28 @@ jobs:
 
           out = Path("release")
           out.mkdir()
-          app_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-app.bin"
-          recovery_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-full-recovery-preserves-meshcore-settings.bin"
+          app_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-app.bin"
+          recovery_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-full-recovery-preserves-meshcore-settings.bin"
+          configurator_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-configurator.zip"
           (out / app_name).write_bytes(app)
           (out / recovery_name).write_bytes(merged)
 
-          files = [out / app_name, out / recovery_name]
+          quick_start = (
+              "NeonPocketMC RCC6 Repeater Setup\n"
+              "=================================\n\n"
+              "1. Keep USB and a tuned LoRa antenna connected.\n"
+              "2. Windows: double-click Configure-RCC6-Windows.cmd\n"
+              "3. Linux: run sh configure-rcc6-linux.sh\n"
+              "4. Follow the numbered questions. Do not disconnect until the wizard says it is safe.\n"
+          )
+          (out / "QUICK_START.txt").write_text(quick_start, encoding="utf-8")
+          with zipfile.ZipFile(out / configurator_name, "w", zipfile.ZIP_DEFLATED) as archive:
+              archive.write("Configure-RCC6-Windows.cmd", "Configure-RCC6-Windows.cmd")
+              archive.write("configure-rcc6-linux.sh", "configure-rcc6-linux.sh")
+              archive.write("scripts/configure_rcc6.py", "scripts/configure_rcc6.py")
+              archive.writestr("QUICK_START.txt", quick_start)
+
+          files = [out / app_name, out / recovery_name, out / configurator_name]
           sums = "".join(
               f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
               for path in files
@@ -95,7 +119,7 @@ jobs:
           )
           PY
 
-      - name: Upload exact RC1 candidate
+      - name: Upload exact RC2 candidate
         uses: actions/upload-artifact@v4
         with:
           name: NeonPocketMC-RCC6-Repeater-${{ github.event.pull_request.head.sha || github.sha }}

@@ -59,6 +59,10 @@ public:
     virtual void onConfigBatchEnd() {}
     // Fill buf with the stats JSON snapshot. Called from tick() (loop task).
     virtual void buildStatsJson(char* buf, size_t buf_size) = 0;
+    // Fill a compact recent-neighbours snapshot on the loop task.
+    virtual void buildNeighborsJson(char* buf, size_t buf_size) {
+      if (buf && buf_size) snprintf(buf, buf_size, "{\"neighbors\":[]}");
+    }
     // Teardown finished (session + DNS freed, WiFi mode restored).
     virtual void onWebConfigStopped() {}
   };
@@ -188,7 +192,10 @@ private:
   uint32_t _handler_refs = 0;
   volatile uint32_t _stats_wanted_until = 0;
   uint32_t _stats_built_at = 0;
-  char _stats_json[1024] = {0};
+  char _stats_json[1536] = {0};
+  volatile uint32_t _neighbors_wanted_until = 0;
+  uint32_t _neighbors_built_at = 0;
+  char _neighbors_json[3072] = {0};
 
   void createServer();
   void registerRoutes();
@@ -213,6 +220,7 @@ private:
   void handleCliPost(AsyncWebServerRequest* req);
   void handleCliResult(AsyncWebServerRequest* req);
   void handleStats(AsyncWebServerRequest* req);
+  void handleNeighbors(AsyncWebServerRequest* req);
   void handleScan(AsyncWebServerRequest* req);
   void handlePresets(AsyncWebServerRequest* req);
   void handleReboot(AsyncWebServerRequest* req);

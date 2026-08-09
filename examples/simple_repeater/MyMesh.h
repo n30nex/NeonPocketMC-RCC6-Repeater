@@ -491,6 +491,7 @@ public:
   }
   void onConfigBatchEnd() override;
   void buildStatsJson(char* buf, size_t buf_size) override;
+  void buildNeighborsJson(char* buf, size_t buf_size) override;
 #endif
 
   // To check if there is pending work

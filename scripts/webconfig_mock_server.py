@@ -102,7 +102,7 @@ def default_config(setup_mode):
             "freq": 910.525, "bw": 62.5, "sf": 7, "cr": 5, "tx": 22, "af": 1.0,
             "rxdelay": 0.0, "txdelay": 0.5, "cad": False, "rxgain": True,
             "repeat": True, "flood_max": 64, "flood_max_advert": 8,
-            "flood_max_unscoped": 8, "loop_detect": "moderate",
+            "flood_max_unscoped": 8, "loop_detect": "moderate", "path_hash_mode": 2,
             "name": "MockNode", "lat": 39.7392, "lon": -104.9903,
             "advert_interval": 240, "flood_advert_interval": 6,
         },
@@ -208,6 +208,7 @@ BOOL_KEYS = {"cad": ("radio", "cad"), "radio.rxgain": ("radio", "rxgain"),
 INT_KEYS = {"tx": ("radio", "tx"), "flood.max": ("radio", "flood_max"),
             "flood.max.advert": ("radio", "flood_max_advert"),
             "flood.max.unscoped": ("radio", "flood_max_unscoped"),
+            "path.hash.mode": ("radio", "path_hash_mode"),
             "advert.interval": ("radio", "advert_interval"),
             "flood.advert.interval": ("radio", "flood_advert_interval"),
             "mqtt.interval": ("mqtt", "interval"),
@@ -749,6 +750,14 @@ class Handler(BaseHTTPRequestHandler):
             if self._need_auth():
                 return
             return self._json(200, self._stats())
+        if path == "/api/neighbors":
+            if self._need_auth():
+                return
+            up = int(time.time() - ST.start)
+            return self._json(200, {"neighbors": [
+                {"id": "d4e5f607", "age": up % 20, "advert_age": 42, "snr": 9.5},
+                {"id": "11223344", "age": 94, "advert_age": 300, "snr": 2.0},
+            ]})
         if path == "/api/scan":
             if self._need_auth():
                 return
@@ -1034,10 +1043,14 @@ class Handler(BaseHTTPRequestHandler):
         return {
             "uptime_s": up, "batt_mv": 4020, "heap_free": 142000, "heap_min": 118000,
             "heap_max_alloc": 96000, "noise": -98, "rssi": -71, "snr": 9.5,
+            "radio_state": 1, "last_rx_age": 2,
             "airtime_s": up // 20, "rx_airtime_s": up // 8, "recv": 512 + up,
             "sent": 88 + up // 3, "rx_err": 3, "sent_flood": 40, "sent_direct": 48,
-            "recv_flood": 300, "recv_direct": 212, "tx_queue": 0, "mqtt_queue": 0,
-            "wifi_rssi": -58, "ip": "192.168.1.42", "slots": slots,
+            "recv_flood": 300, "recv_direct": 212, "direct_dups": 4, "flood_dups": 11,
+            "err_flags": 0, "neighbors": 2, "clients": 1, "packet_pool_free": 18,
+            "tx_queue": 0, "tx_budget_ms": 180000, "mqtt_queue": 0,
+            "wifi_rssi": -58, "wifi_channel": 6, "ip": "192.168.1.42",
+            "cpu_mhz": 160, "slots": slots,
         }
 
 

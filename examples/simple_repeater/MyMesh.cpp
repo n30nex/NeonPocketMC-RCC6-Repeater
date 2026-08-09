@@ -1024,6 +1024,9 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.flood_max = 64;
   _prefs.flood_max_unscoped = 64;
   _prefs.flood_max_advert = 8;
+#ifdef DEFAULT_PATH_HASH_MODE
+  _prefs.path_hash_mode = DEFAULT_PATH_HASH_MODE;
+#endif
   _prefs.interference_threshold = 0; // disabled
 #ifdef WITH_MQTT_BRIDGE
   _prefs.agc_reset_interval = 7;    // 28 seconds (secs/4) — prevents AGC drift on long-running observers
@@ -1495,25 +1498,47 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
   } else if (_webconfig && _webconfig->mode() == WebConfigServer::MODE_SETUP) {
     strncpy(ip, WiFi.softAPIP().toString().c_str(), sizeof(ip) - 1);
   }
+  uint16_t neighbor_count = 0;
+#if MAX_NEIGHBOURS
+  for (int i = 0; i < MAX_NEIGHBOURS; i++) {
+    if (neighbours[i].heard_timestamp > 0) neighbor_count++;
+  }
+#endif
+  uint16_t client_count = 0;
+  for (int i = 0; i < acl.getNumClients(); i++) {
+    if (acl.getClientByIdx(i)->permissions != 0) client_count++;
+  }
+  const uint32_t now_ms = _ms->getMillis();
+  const uint32_t last_rx_ms = _radio->getLastRecvMillis();
+  const uint32_t last_rx_age = last_rx_ms ? (now_ms - last_rx_ms) / 1000 : 0;
+  SimpleMeshTables* tables = (SimpleMeshTables*)getTables();
   int pos = snprintf(buf, buf_size,
       "{\"uptime_s\":%lu,\"batt_mv\":%u,"
       "\"heap_free\":%lu,\"heap_min\":%lu,\"heap_max_alloc\":%lu,"
-      "\"noise\":%d,\"rssi\":%d,\"snr\":%.1f,"
+      "\"noise\":%d,\"rssi\":%d,\"snr\":%.1f,\"radio_state\":%u,\"last_rx_age\":%lu,"
       "\"airtime_s\":%lu,\"rx_airtime_s\":%lu,"
       "\"recv\":%lu,\"sent\":%lu,\"rx_err\":%lu,"
       "\"sent_flood\":%lu,\"sent_direct\":%lu,\"recv_flood\":%lu,\"recv_direct\":%lu,"
-      "\"tx_queue\":%d,\"wifi_rssi\":%d,\"ip\":\"%s\",\"mqtt_queue\":%d,\"slots\":[",
+      "\"direct_dups\":%lu,\"flood_dups\":%lu,\"err_flags\":%u,"
+      "\"neighbors\":%u,\"clients\":%u,\"packet_pool_free\":%d,"
+      "\"tx_queue\":%d,\"tx_budget_ms\":%lu,"
+      "\"wifi_rssi\":%d,\"wifi_channel\":%d,\"ip\":\"%s\","
+      "\"cpu_mhz\":%u,\"mqtt_queue\":%d,\"slots\":[",
       (unsigned long)(uptime_millis / 1000), (unsigned)board.getBattMilliVolts(),
       (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMinFreeHeap(),
       (unsigned long)ESP.getMaxAllocHeap(),
       (int)_radio->getNoiseFloor(), (int)radio_driver.getLastRSSI(),
-      radio_driver.getLastSNR(),
+      radio_driver.getLastSNR(), (unsigned)_radio->getRadioState(), (unsigned long)last_rx_age,
       (unsigned long)(getTotalAirTime() / 1000), (unsigned long)(getReceiveAirTime() / 1000),
       (unsigned long)radio_driver.getPacketsRecv(), (unsigned long)radio_driver.getPacketsSent(),
       (unsigned long)radio_driver.getPacketsRecvErrors(),
       (unsigned long)getNumSentFlood(), (unsigned long)getNumSentDirect(),
       (unsigned long)getNumRecvFlood(), (unsigned long)getNumRecvDirect(),
-      (int)_mgr->getOutboundCount(0xFFFFFFFF), wifi_rssi, ip,
+      (unsigned long)tables->getNumDirectDups(), (unsigned long)tables->getNumFloodDups(),
+      (unsigned)_err_flags, (unsigned)neighbor_count, (unsigned)client_count,
+      (int)_mgr->getFreeCount(), (int)_mgr->getOutboundCount(0xFFFFFFFF),
+      (unsigned long)getRemainingTxBudget(), wifi_rssi,
+      WiFi.status() == WL_CONNECTED ? WiFi.channel() : 0, ip, (unsigned)ESP.getCpuFreqMHz(),
       bridge ? bridge->getQueueSize() : 0);
   if (pos < 0 || pos >= (int)buf_size - 3) return;  // truncated; snprintf terminated it
   bool first = true;
@@ -1535,6 +1560,31 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
     pos += n;
     first = false;
   }
+  snprintf(buf + pos, buf_size - pos, "]}");
+}
+
+void MyMesh::buildNeighborsJson(char* buf, size_t buf_size) {
+  int pos = snprintf(buf, buf_size, "{\"neighbors\":[");
+  bool first = true;
+#if MAX_NEIGHBOURS
+  const uint32_t now = getRTCClock()->getCurrentTime();
+  for (int i = 0; i < MAX_NEIGHBOURS && pos > 0 && pos < (int)buf_size - 64; i++) {
+    const NeighbourInfo& n = neighbours[i];
+    if (n.heard_timestamp == 0) continue;
+    char id[9];
+    mesh::Utils::toHex(id, n.id.pub_key, 4);
+    const uint32_t age = now >= n.heard_timestamp ? now - n.heard_timestamp : 0;
+    const uint32_t advert_age = n.advert_timestamp && now >= n.advert_timestamp
+        ? now - n.advert_timestamp : 0;
+    int wrote = snprintf(buf + pos, buf_size - pos,
+        "%s{\"id\":\"%s\",\"age\":%lu,\"advert_age\":%lu,\"snr\":%.2f}",
+        first ? "" : ",", id, (unsigned long)age, (unsigned long)advert_age,
+        (double)n.snr / 4.0);
+    if (wrote < 0 || wrote >= (int)(buf_size - pos)) break;
+    pos += wrote;
+    first = false;
+  }
+#endif
   snprintf(buf + pos, buf_size - pos, "]}");
 }
 #endif
@@ -1731,6 +1781,18 @@ void MyMesh::loop() {
 #endif
 
 #ifdef WITH_WEBCONFIG
+#ifdef WEBCONFIG_AUTO_LAN
+  // RCC6 observer builds keep the authenticated dashboard available on the
+  // configured LAN. Wait for the MQTT bridge to establish Wi-Fi, then make one
+  // boot-time attempt; `stop webconfig` still keeps it stopped until reboot.
+  static bool webconfig_autostart_attempted = false;
+  if (!webconfig_autostart_attempted && !_webconfig && WiFi.status() == WL_CONNECTED) {
+    webconfig_autostart_attempted = true;
+    char wc_reply[160];
+    startWebConfig(false, wc_reply);
+    Serial.println(wc_reply);
+  }
+#endif
   if (_webconfig) {
     _webconfig->tick(millis());
     if (!_webconfig->isRunning() && !_webconfig->isStopping()) {

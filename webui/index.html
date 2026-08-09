@@ -93,6 +93,19 @@ button.btn.sm{font-size:12.5px;padding:6px 10px}
 .tile b{font-size:18px;font-weight:650}
 .tile s{text-decoration:none;font-size:11.5px;color:var(--mut)}
 canvas{width:100%;height:56px;display:block}
+.health{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.health span{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border-radius:99px;padding:5px 10px;font-size:12px;font-weight:650}
+.health i{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+.health .ok i{background:var(--ok)}.health .warn i{background:var(--warn)}.health .bad i{background:var(--err)}
+.chartgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.chart{border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+.chart h3{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.chart .legend{min-height:18px;font-size:11px;color:var(--mut);display:flex;gap:10px;flex-wrap:wrap}
+.chart .legend b{font-weight:650}
+.chart canvas{height:90px}
+.neighbour{display:grid;grid-template-columns:minmax(70px,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.neighbour:last-child{border-bottom:0}.neighbour code{color:var(--acc);font-size:12px}.neighbour span{color:var(--mut);text-align:right}
+@media(max-width:520px){.chartgrid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .net{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--ink);font:inherit;
   padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left}
 .net:last-child{border-bottom:0}
@@ -275,6 +288,9 @@ body.tab-cli{padding-bottom:0}
         <div class="hint">Maximum legal power varies by region &mdash; check local rules.</div></div>
       <div class="sw"><span><b>Repeat</b><i>Forward mesh traffic. Off = listen-only (still observes and publishes).</i></span>
         <span class="tgl"><input type="checkbox" data-k="repeat"><u></u></span></div>
+      <div class="f" style="margin-top:10px"><label>Advert path hashes</label>
+        <select data-k="path.hash.mode"><option value="0">1 byte</option><option value="1">2 bytes</option><option value="2">3 bytes (recommended)</option></select>
+        <div class="hint">Controls this repeater's own adverts only. MeshCore 1.17 forwards all three sizes.</div></div>
       <div class="note">Need settings that aren't listed? Choose <b>Keep current settings</b>, finish setup, then fine-tune in the <a href="#" onclick="enterApp();return false">Advanced editor</a>.</div>
     </div>
     <div class="card">
@@ -321,7 +337,7 @@ body.tab-cli{padding-bottom:0}
       <h2>Step 4 &middot; Review &amp; save</h2>
       <div id="wz-review"></div>
     </div>
-    <div class="note">Saving reboots the node into normal operation. To change settings later, run <b>start webconfig</b> from the serial console.</div>
+    <div class="note">Saving reboots the node into normal operation. The authenticated dashboard then starts automatically on the node's local-network IP.</div>
     <div class="row">
       <button class="btn sec" onclick="wzGo(3)">Back</button>
       <button class="btn" style="flex:1" id="wz-save" onclick="wizardSave()">Save &amp; reboot</button>
@@ -335,14 +351,14 @@ body.tab-cli{padding-bottom:0}
 <!-- ============ MAIN APP ============ -->
 <section id="v-app" class="hide">
   <div class="tabs" id="tabs">
-    <button data-t="radio" class="on">Radio</button>
+    <button data-t="stats" class="on">Dashboard</button>
+    <button data-t="radio">Radio</button>
     <button data-t="mqtt">MQTT</button>
     <button data-t="wifi">WiFi</button>
-    <button data-t="stats">Stats</button>
     <button data-t="cli">CLI</button>
   </div>
 
-  <div id="t-radio">
+  <div id="t-radio" class="hide">
     <div class="card">
       <h2>Node</h2>
       <div class="f"><label>Name</label><input type="text" data-k="name" maxlength="31"></div>
@@ -389,6 +405,9 @@ body.tab-cli{padding-bottom:0}
         <span class="tgl"><input type="checkbox" data-k="radio.rxgain"><u></u></span></div>
       <div class="sw"><span><b>Repeat</b><i>Forward mesh traffic. Off = listen-only (still observes and publishes).</i></span>
         <span class="tgl"><input type="checkbox" data-k="repeat"><u></u></span></div>
+      <div class="f" style="margin-top:10px"><label>Advert path hashes</label>
+        <select data-k="path.hash.mode"><option value="0">1 byte</option><option value="1">2 bytes</option><option value="2">3 bytes (recommended)</option></select>
+        <div class="hint">Controls this repeater's own adverts only. MeshCore 1.17 forwards all three sizes.</div></div>
       <div class="row" style="margin-top:6px">
         <div class="f"><label>Local advert (min)</label><input type="number" data-k="advert.interval" min="0" max="240">
           <div class="hint">0 = off</div></div>
@@ -487,18 +506,31 @@ body.tab-cli{padding-bottom:0}
     </div>
   </div>
 
-  <div id="t-stats" class="hide">
+  <div id="t-stats">
     <div class="card">
-      <h2>Device <span id="stats-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
+      <h2>Live overview <span id="stats-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
+      <div class="health" id="health"><span><i></i>Collecting data</span></div>
       <div class="tiles" id="tiles"></div>
     </div>
     <div class="card">
-      <h2>Free heap (KB)</h2><canvas id="spark-heap" height="56"></canvas>
-      <h2>Noise floor (dBm)</h2><canvas id="spark-noise" height="56"></canvas>
+      <h2>Rolling activity <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0">last 6 minutes</span></h2>
+      <div class="chartgrid">
+        <div class="chart"><h3>Packet rate</h3><div class="legend" id="leg-packets"></div><canvas id="spark-packets" height="90"></canvas></div>
+        <div class="chart"><h3>RF signal</h3><div class="legend" id="leg-rf"></div><canvas id="spark-rf" height="90"></canvas></div>
+        <div class="chart"><h3>Channel airtime</h3><div class="legend" id="leg-airtime"></div><canvas id="spark-airtime" height="90"></canvas></div>
+        <div class="chart"><h3>Queues</h3><div class="legend" id="leg-queues"></div><canvas id="spark-queues" height="90"></canvas></div>
+        <div class="chart"><h3>MQTT publishing</h3><div class="legend" id="leg-mqtt"></div><canvas id="spark-mqtt" height="90"></canvas></div>
+        <div class="chart"><h3>Memory</h3><div class="legend" id="leg-heap"></div><canvas id="spark-heap" height="90"></canvas></div>
+        <div class="chart"><h3>Power &amp; WiFi</h3><div class="legend" id="leg-link"></div><canvas id="spark-link" height="90"></canvas></div>
+      </div>
     </div>
     <div class="card">
       <h2>MQTT servers</h2>
       <div id="stat-slots" style="font-size:13.5px;color:var(--mut)">No data yet.</div>
+    </div>
+    <div class="card">
+      <h2>Recently heard neighbours <span id="neighbor-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
+      <div id="stat-neighbors" style="color:var(--mut);font-size:13px">Collecting…</div>
     </div>
   </div>
 
@@ -576,7 +608,10 @@ body.tab-cli{padding-bottom:0}
 <script>
 "use strict";
 var SENTINEL="********";
-var st={mode:"",authed:false,cfg:null,orig:{},dirty:{},presets:[],nslots:6,statsTimer:0,statsOn:false,statsInflight:false,hist:{heap:[],noise:[]},scanTarget:"",scanTimer:0};
+var st={mode:"",authed:false,cfg:null,orig:{},dirty:{},presets:[],nslots:6,
+  statsTimer:0,statsOn:false,statsInflight:false,lastStats:null,neighborPoll:0,
+  hist:{rx:[],tx:[],rssi:[],snr:[],noise:[],txair:[],rxair:[],txq:[],mqttq:[],mqttok:[],mqtterr:[],heap:[],heapmin:[],batt:[],wifi:[]},
+  scanTarget:"",scanTimer:0};
 
 function $(s){return document.querySelector(s)}
 function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s))}
@@ -694,6 +729,7 @@ function cfgVal(k){ // map a `set` key to its current value string, from st.cfg
     case"flood.max.advert":return String(r.flood_max_advert);
     case"flood.max.unscoped":return String(r.flood_max_unscoped);
     case"loop.detect":return r.loop_detect;
+    case"path.hash.mode":return String(r.path_hash_mode);
     case"advert.interval":return String(r.advert_interval);
     case"flood.advert.interval":return String(r.flood_advert_interval);
     case"password":return"";
@@ -1007,7 +1043,7 @@ function appSave(){
   saveChanges({reboot:true},function(r,acked){
     if(!r){
       if(acked){
-        showReboot("The node accepted the settings and is rebooting to join the new WiFi network. This page will drop — reconnect to your normal WiFi, then find the node's new IP on your router (or run “start webconfig” over serial).",
+        showReboot("The node accepted the settings and is rebooting to join the new WiFi network. Reconnect to your normal WiFi, then open the node's new IP. The USB configurator can show that IP.",
           false,"Saved ✓ — node rebooting");
         st.dirty={};updateSaveBar();
       } else {
@@ -1017,7 +1053,7 @@ function appSave(){
     }
     var fails=(r.results||[]).filter(function(x){return!/^OK/i.test(x.reply)});
     if(fails.length){toast(fails.length+" setting(s) rejected — see fields (not rebooting)");return}
-    showReboot("The node is joining the new WiFi network. This page will drop — reconnect to your normal WiFi, then find the node's new IP on your router (or run “start webconfig” over serial).",
+    showReboot("The node is joining the new WiFi network. Reconnect to your normal WiFi, then open the node's new IP. The USB configurator can show that IP.",
       false,"Saved ✓ — reconnecting");
     st.dirty={};updateSaveBar();
   });
@@ -1105,7 +1141,9 @@ function loadConfigSoft(){ // re-sync accepted values without clobbering chips/r
 /* ---------- tabs / app ---------- */
 function enterApp(){
   show("#v-app");
+  var dash=$('#tabs button[data-t="stats"]');if(dash&&!dash.classList.contains("on"))dash.click();
   loadConfig().catch(function(e){if(e.message!=="auth")toast("Failed to load config")});
+  startStats();
 }
 // Setup-mode shortcut: straight past the guided steps into the terminal, for
 // operators who already have a config to paste. Setup mode authenticates by
@@ -1128,7 +1166,12 @@ $("#tabs").addEventListener("click",function(ev){
 /* ---------- stats ---------- */
 function fmtUp(s){var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return d>0?d+"d "+h+"h":(h>0?h+"h "+m+"m":m+"m")}
+function fmtAge(s){if(s==null)return"—";return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h"}
 function tile(i,b,s){return'<div class="tile"><i>'+i+'</i><b>'+b+'</b>'+(s?' <s>'+s+'</s>':'')+'</div>'}
+function dRate(now,old,dt,mul){return old==null||dt<=0||now<old?0:(now-old)*mul/dt}
+function radioState(v){return(v&16)?"ready":v===0?"idle":v===1?"receiving":v===3?"TX wait":"state "+v}
+function health(label,state){return'<span class="'+state+'"><i></i>'+label+'</span>'}
+function legend(id,items){$(id).innerHTML=items.map(function(x){return'<span style="color:'+x.c+'">● <b>'+x.n+'</b> '+x.v+'</span>'}).join("")}
 function startStats(){stopStats();st.statsOn=true;pollStats()}
 function stopStats(){st.statsOn=false;if(st.statsTimer){clearTimeout(st.statsTimer);st.statsTimer=0}}
 function pollStats(){
@@ -1139,28 +1182,73 @@ function pollStats(){
   st.statsInflight=true;
   api("/api/stats",{timeout:5000}).then(function(s){
     if(s.state==="pending"){$("#stats-age").textContent="collecting…";return}
-    $("#stats-age").textContent="";
+    $("#stats-age").textContent="updated now";
+    var old=st.lastStats,dt=old?s.uptime_s-old.uptime_s:0;
+    var rxrate=dRate(s.recv,old&&old.recv,dt,60),txrate=dRate(s.sent,old&&old.sent,dt,60);
+    var txload=Math.min(100,dRate(s.airtime_s,old&&old.airtime_s,dt,100));
+    var rxload=Math.min(100,dRate(s.rx_airtime_s,old&&old.rx_airtime_s,dt,100));
     var kb=Math.round(s.heap_free/1024);
+    var minKb=Math.round(s.heap_min/1024),sl=s.slots||[];
+    var mqttOk=sl.filter(function(x){return x.state==="ok"}).length;
+    var mqttOkTotal=sl.reduce(function(n,x){return n+Number(x.ok||0)},0);
+    var mqttErrTotal=sl.reduce(function(n,x){return n+Number(x.err||0)},0);
+    var oldSlots=old&&old.slots||[];
+    var oldMqttOk=oldSlots.reduce(function(n,x){return n+Number(x.ok||0)},0);
+    var oldMqttErr=oldSlots.reduce(function(n,x){return n+Number(x.err||0)},0);
+    var mqttRate=dRate(mqttOkTotal,old&&oldMqttOk,dt,60),mqttErrRate=dRate(mqttErrTotal,old&&oldMqttErr,dt,60);
+    var wifiState=s.wifi_rssi===0?"bad":s.wifi_rssi<-78?"bad":s.wifi_rssi<-67?"warn":"ok";
+    var radioHealth=s.err_flags?"bad":(s.recv&&s.last_rx_age>900)?"warn":"ok";
+    var mqttHealth=!sl.length?"warn":mqttOk===sl.length?"ok":mqttOk?"warn":"bad";
+    var memHealth=s.heap_free<50000||s.heap_max_alloc<20000?"bad":s.heap_free<80000?"warn":"ok";
+    $("#health").innerHTML=health("Radio "+radioState(s.radio_state),radioHealth)+
+      health("WiFi "+s.wifi_rssi+" dBm",wifiState)+health("MQTT "+mqttOk+"/"+sl.length,mqttHealth)+
+      health("Memory "+kb+" KB",memHealth)+(s.err_flags?health("Fault 0x"+Number(s.err_flags).toString(16),"bad"):"");
     $("#tiles").innerHTML=
       tile("Uptime",fmtUp(s.uptime_s))+
       tile("Battery",(s.batt_mv/1000).toFixed(2),"V")+
-      tile("Free heap",kb,"KB · min "+Math.round(s.heap_min/1024))+
-      tile("Max alloc",Math.round(s.heap_max_alloc/1024),"KB")+
-      tile("Noise floor",s.noise,"dBm")+
-      tile("Last RSSI",s.rssi,"dBm · SNR "+s.snr)+
-      tile("Airtime TX",fmtUp(s.airtime_s))+
-      tile("Airtime RX",fmtUp(s.rx_airtime_s))+
-      tile("Packets RX",s.recv,"err "+s.rx_err)+
+      tile("Neighbours",s.neighbors,"recently heard")+
+      tile("Last RF packet",s.recv?fmtAge(s.last_rx_age):"never")+
+      tile("Packet rate",rxrate.toFixed(1)+" RX","/min · "+txrate.toFixed(1)+" TX")+
+      tile("Packets RX",s.recv,"errors "+s.rx_err)+
       tile("Packets TX",s.sent)+
-      tile("Flood RX/TX",s.recv_flood+" / "+s.sent_flood)+
-      tile("Direct RX/TX",s.recv_direct+" / "+s.sent_direct)+
-      tile("TX queue",s.tx_queue)+
+      tile("Flood RX / TX",s.recv_flood+" / "+s.sent_flood)+
+      tile("Direct RX / TX",s.recv_direct+" / "+s.sent_direct)+
+      tile("Duplicates",s.flood_dups+" flood","· "+s.direct_dups+" direct")+
+      tile("Last RSSI",s.rssi,"dBm · SNR "+s.snr)+
+      tile("Noise floor",s.noise,"dBm")+
+      tile("Airtime load",txload.toFixed(1)+"% TX","· "+rxload.toFixed(1)+"% RX")+
+      tile("Airtime totals",fmtUp(s.airtime_s)+" TX","· "+fmtUp(s.rx_airtime_s)+" RX")+
+      tile("TX queue",s.tx_queue,"budget "+Math.round(s.tx_budget_ms/1000)+"s")+
       tile("MQTT queue",s.mqtt_queue)+
-      tile("WiFi RSSI",s.wifi_rssi,"dBm")+
-      tile("IP",s.ip||"—");
-    push(st.hist.heap,kb);push(st.hist.noise,s.noise);
-    spark($("#spark-heap"),st.hist.heap);spark($("#spark-noise"),st.hist.noise);
-    var sl=s.slots||[];
+      tile("MQTT publishes",mqttOkTotal,"ok · "+mqttErrTotal+" errors")+
+      tile("Packet pool",s.packet_pool_free,"free")+
+      tile("Free heap",kb,"KB · minimum "+minKb)+
+      tile("Max alloc",Math.round(s.heap_max_alloc/1024),"KB")+
+      tile("WiFi",s.wifi_rssi,"dBm · channel "+s.wifi_channel)+
+      tile("IP",s.ip||"—")+
+      tile("CPU",s.cpu_mhz,"MHz")+
+      tile("Admin clients",s.clients)+
+      tile("Error flags","0x"+Number(s.err_flags).toString(16));
+    push(st.hist.rx,rxrate);push(st.hist.tx,txrate);push(st.hist.rssi,s.rssi);push(st.hist.snr,s.snr);
+    push(st.hist.noise,s.noise);push(st.hist.txair,txload);push(st.hist.rxair,rxload);
+    push(st.hist.txq,s.tx_queue);push(st.hist.mqttq,s.mqtt_queue);push(st.hist.heap,kb);
+    push(st.hist.mqttok,mqttRate);push(st.hist.mqtterr,mqttErrRate);
+    push(st.hist.heapmin,minKb);push(st.hist.batt,s.batt_mv/1000);push(st.hist.wifi,s.wifi_rssi);
+    var blue=color("--acc","#2b7de9"),green=color("--ok","#1d9d5f"),red=color("--err","#d64545"),orange=color("--warn","#c8871a"),mut=color("--mut","#66738a");
+    legend("#leg-packets",[{n:"RX",v:rxrate.toFixed(1)+"/min",c:blue},{n:"TX",v:txrate.toFixed(1)+"/min",c:green}]);
+    plot($("#spark-packets"),[{d:st.hist.rx,c:blue},{d:st.hist.tx,c:green}],false);
+    legend("#leg-rf",[{n:"RSSI",v:s.rssi+" dBm",c:blue},{n:"noise",v:s.noise+" dBm",c:mut},{n:"SNR",v:s.snr+" dB",c:green}]);
+    plot($("#spark-rf"),[{d:st.hist.rssi,c:blue},{d:st.hist.noise,c:mut},{d:st.hist.snr,c:green}],true);
+    legend("#leg-airtime",[{n:"TX",v:txload.toFixed(1)+"%",c:orange},{n:"RX",v:rxload.toFixed(1)+"%",c:blue}]);
+    plot($("#spark-airtime"),[{d:st.hist.txair,c:orange},{d:st.hist.rxair,c:blue}],false,0,100);
+    legend("#leg-queues",[{n:"radio",v:s.tx_queue,c:blue},{n:"MQTT",v:s.mqtt_queue,c:orange}]);
+    plot($("#spark-queues"),[{d:st.hist.txq,c:blue},{d:st.hist.mqttq,c:orange}],false,0);
+    legend("#leg-mqtt",[{n:"success",v:mqttRate.toFixed(1)+"/min",c:green},{n:"errors",v:mqttErrRate.toFixed(1)+"/min",c:red}]);
+    plot($("#spark-mqtt"),[{d:st.hist.mqttok,c:green},{d:st.hist.mqtterr,c:red}],false,0);
+    legend("#leg-heap",[{n:"free",v:kb+" KB",c:green},{n:"minimum",v:minKb+" KB",c:red}]);
+    plot($("#spark-heap"),[{d:st.hist.heap,c:green},{d:st.hist.heapmin,c:red}],false,0);
+    legend("#leg-link",[{n:"battery",v:(s.batt_mv/1000).toFixed(2)+" V",c:green},{n:"WiFi",v:s.wifi_rssi+" dBm",c:blue}]);
+    plot($("#spark-link"),[{d:st.hist.batt,c:green},{d:st.hist.wifi,c:blue}],true);
     $("#stat-slots").innerHTML=sl.length?sl.map(function(x){
       // "filt" is sent only when the slot is not on the all-types default. A
       // healthy slot that has stopped publishing is otherwise indistinguishable
@@ -1169,6 +1257,8 @@ function pollStats(){
         +esc(x.filt===0?"none (nothing uploaded)":filterText(x.filt))+'</b></div>';
       return'<div class="kv"><i>Slot '+x.n+" · "+esc(x.name)+'</i><b><span class="pill '+esc(x.state)+'">'+esc(x.state)+'</span> '+x.ok+' ok / '+x.err+' err</b></div>'+f;
     }).join(""):"No servers configured.";
+    st.lastStats=s;
+    if(++st.neighborPoll%4===1)pollNeighbors();
   }).catch(function(){}).then(function(){
     // Runs whether the poll resolved or rejected: clear the guard, then schedule
     // the next tick only if the Stats tab is still active.
@@ -1176,23 +1266,34 @@ function pollStats(){
     if(st.statsOn)st.statsTimer=setTimeout(pollStats,3000);
   });
 }
-function push(a,v){a.push(v);if(a.length>60)a.shift()}
-function spark(cv,data){
-  var dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=56;
+function push(a,v){a.push(Number(v)||0);if(a.length>120)a.shift()}
+function color(name,fallback){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||fallback}
+function plot(cv,series,perSeries,fixedMin,fixedMax){
+  var dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=90;
   cv.width=w*dpr;cv.height=h*dpr;
   var g=cv.getContext("2d");g.scale(dpr,dpr);g.clearRect(0,0,w,h);
-  if(data.length<2)return;
-  var mn=Math.min.apply(null,data),mx=Math.max.apply(null,data);
-  if(mx===mn){mx+=1;mn-=1}
-  g.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue("--acc").trim()||"#2b7de9";
-  g.lineWidth=2;g.lineJoin="round";g.beginPath();
-  data.forEach(function(v,i){
-    var x=i/(data.length-1)*(w-4)+2,y=h-4-(v-mn)/(mx-mn)*(h-10);
-    i?g.lineTo(x,y):g.moveTo(x,y);
+  g.strokeStyle=color("--line","#e2e7ee");g.lineWidth=1;
+  [0.25,0.5,0.75].forEach(function(p){g.beginPath();g.moveTo(0,h*p);g.lineTo(w,h*p);g.stroke()});
+  var all=[];series.forEach(function(s){all=all.concat(s.d)});
+  if(all.length<2)return;
+  var commonMin=fixedMin!=null?fixedMin:Math.min.apply(null,all),commonMax=fixedMax!=null?fixedMax:Math.max.apply(null,all);
+  series.forEach(function(s){var data=s.d;if(data.length<2)return;
+    var mn=perSeries?Math.min.apply(null,data):commonMin,mx=perSeries?Math.max.apply(null,data):commonMax;
+    if(fixedMin!=null)mn=fixedMin;if(fixedMax!=null)mx=fixedMax;if(mx===mn){mx+=1;mn-=1}
+    g.strokeStyle=s.c;g.lineWidth=2;g.lineJoin="round";g.beginPath();
+    data.forEach(function(v,i){var x=i/(data.length-1)*(w-4)+2,y=h-4-(v-mn)/(mx-mn)*(h-10);i?g.lineTo(x,y):g.moveTo(x,y)});
+    g.stroke();
   });
-  g.stroke();
-  g.fillStyle=g.strokeStyle;g.font="10px system-ui";g.textAlign="right";
-  g.fillText(data[data.length-1],w-2,10);
+}
+function pollNeighbors(){
+  api("/api/neighbors",{timeout:5000}).then(function(r){
+    if(r.state==="pending")return;
+    var ns=(r.neighbors||[]).sort(function(a,b){return a.age-b.age});
+    var total=st.lastStats?st.lastStats.neighbors:ns.length;$("#neighbor-age").textContent=total+" heard";
+    $("#stat-neighbors").innerHTML=ns.length?ns.map(function(n){
+      return'<div class="neighbour"><code>'+esc(n.id)+'</code><span>heard '+fmtAge(n.age)+' ago<br>SNR '+Number(n.snr).toFixed(1)+' dB</span><span>'+(n.advert_age?'advert '+fmtAge(n.advert_age)+' ago':'no advert')+'</span></div>';
+    }).join(""):"No neighbours heard yet.";
+  }).catch(function(){});
 }
 
 /* ---------- wifi scan ---------- */
@@ -1363,6 +1464,7 @@ function buildReview(){
   row("Radio",(rp?rp.t+" — ":"")+rc.split(",").join(" / ")+(("radio" in d)?"":" (unchanged)"));
   if(("tx" in d)&&d.tx!=="")row("TX power",d.tx+" dBm");
   row("Repeat",eff("repeat")==="off"?"off (listen-only)":"on");
+  var hm=eff("path.hash.mode");row("Advert hashes",hm==="0"?"1 byte":hm==="1"?"2 bytes":"3 bytes");
   if(st.needsSetup||eff("password"))row("Admin password",eff("password")?"set":"(not set)");
   row("Observer name",eff("mqtt.origin")||"(not set)");
   row("IATA",(eff("mqtt.iata")||"(not set)").toUpperCase());
@@ -1374,7 +1476,7 @@ function buildReview(){
     var p=eff("mqtt"+i+".preset");
     if(p&&p!=="none")row("Slot "+i,p);
   }
-  var extra=Object.keys(d).filter(function(k){return!/^(wifi\.|password$|name$|radio$|tx$|repeat$|mqtt\.origin|mqtt\.iata|mqtt\.owner|mqtt\.email|mqtt[1-9]\.)/.test(k)}).length;
+  var extra=Object.keys(d).filter(function(k){return!/^(wifi\.|password$|name$|radio$|tx$|repeat$|path\.hash\.mode$|mqtt\.origin|mqtt\.iata|mqtt\.owner|mqtt\.email|mqtt[1-9]\.)/.test(k)}).length;
   if(extra)row("Other changes",extra+" setting(s)");
   $("#wz-review").innerHTML=rows.join("");
 }
@@ -1396,7 +1498,7 @@ function wizardSave(){
       if(acked){
         // The node accepted the batch (202): it applies the settings and
         // reboots on its own even though we couldn't read the confirmation.
-        showReboot("The confirmation reply was lost, but the node accepted the settings — its screen shows “Config saved!” and it reboots by itself within 30 seconds. Reconnect your phone or laptop to your normal WiFi. Find the node's IP on your router, or run “start webconfig” over serial to manage it again.",
+        showReboot("The confirmation reply was lost, but the node accepted the settings and reboots by itself within 30 seconds. Reconnect to your normal WiFi. The dashboard starts automatically at the node's new IP; the USB configurator can show it.",
           false,"Settings sent ✓ — node rebooting");
         st.dirty={};
         return;
@@ -1410,7 +1512,7 @@ function wizardSave(){
       return;
     }
     showReboot("The node is joining “"+eff("wifi.ssid")
-      +"”. Reconnect your phone or laptop to your normal WiFi. Find the node's IP on your router, or run “start webconfig” over serial to manage it again"
+      +"”. Reconnect to your normal WiFi. The dashboard starts automatically at the node's new IP; the USB configurator can show it"
       +(eff("password")?" — logging in there needs the admin password you just set.":"."),
       false,"Settings saved ✓ — rebooting in a moment");
     st.dirty={};

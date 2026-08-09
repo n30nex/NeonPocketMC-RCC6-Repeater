@@ -336,6 +336,7 @@ void WebConfigServer::finalizeTeardown() {
   _batch_reboot_armed = false;
   _session_token[0] = 0;
   _stats_json[0] = 0;
+  _neighbors_json[0] = 0;
   if (_cb) _cb->onWebConfigStopped();
 }
 
@@ -379,6 +380,12 @@ void WebConfigServer::tick(uint32_t now) {
     WCLock lock(_mux);
     _cb->buildStatsJson(_stats_json, sizeof(_stats_json));
     _stats_built_at = now;
+  }
+  if ((int32_t)(_neighbors_wanted_until - now) > 0 &&
+      (now - _neighbors_built_at) >= 10000) {
+    WCLock lock(_mux);
+    _cb->buildNeighborsJson(_neighbors_json, sizeof(_neighbors_json));
+    _neighbors_built_at = now;
   }
 
   // Idle timeout: only the setup AP auto-stops (a deployed node must not be
@@ -549,6 +556,7 @@ void WebConfigServer::registerRoutes() {
   _server->on("/api/cli", HTTP_POST, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handleCliPost); },
               NULL, collectBody);
   _server->on("/api/stats", HTTP_GET, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handleStats); });
+  _server->on("/api/neighbors", HTTP_GET, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handleNeighbors); });
   _server->on("/api/scan", HTTP_GET, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handleScan); });
   _server->on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handleReboot); });
   _server->on("/api/portal/exit", HTTP_POST, [](AsyncWebServerRequest* r) { dispatchRequest(r, &WebConfigServer::handlePortalExit); });
@@ -713,6 +721,7 @@ void WebConfigServer::handleConfigGet(AsyncWebServerRequest* req) {
     radio["flood_max_unscoped"] = _prefs->flood_max_unscoped;
     static const char* const LOOP_MODES[] = { "off", "minimal", "moderate", "strict" };
     radio["loop_detect"] = LOOP_MODES[_prefs->loop_detect <= LOOP_DETECT_STRICT ? _prefs->loop_detect : 0];
+    radio["path_hash_mode"] = _prefs->path_hash_mode;
     radio["name"] = (const char*)_prefs->node_name;
     radio["lat"] = _prefs->node_lat;
     radio["lon"] = _prefs->node_lon;
@@ -1265,6 +1274,21 @@ void WebConfigServer::handleStats(AsyncWebServerRequest* req) {
     return;
   }
   req->send(200, "application/json", _stats_json);
+}
+
+void WebConfigServer::handleNeighbors(AsyncWebServerRequest* req) {
+  if (_mode == MODE_OFF) { req->send(503); return; }
+  if (!checkAuth(req)) { req->send(401, "application/json", "{\"error\":\"auth\"}"); return; }
+  uint32_t until = millis() + 30000;
+  if (until == 0) until = 1;
+  _neighbors_wanted_until = until;
+
+  WCLock lock(_mux);
+  if (_neighbors_json[0] == 0) {
+    req->send(200, "application/json", "{\"state\":\"pending\"}");
+    return;
+  }
+  req->send(200, "application/json", _neighbors_json);
 }
 
 void WebConfigServer::handleScan(AsyncWebServerRequest* req) {
