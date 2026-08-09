@@ -235,6 +235,15 @@ def ask_text(label: str, *, default: str = "", maximum: int | None = None,
         return value
 
 
+def ask_confirmed_password(label: str) -> str:
+    while True:
+        value = ask_text(f"New {label} (8-15 characters)", maximum=15,
+                         validator=lambda text: len(text) >= 8, secret=True)
+        if value == getpass.getpass(f"Confirm {label}: "):
+            return value
+        print("  Passwords did not match. Try again.")
+
+
 def ask_number(label: str, minimum: int, maximum: int, default: int | None = None) -> int:
     while True:
         suffix = f" [{default}]" if default is not None else ""
@@ -378,6 +387,8 @@ def build_commands(config: dict) -> list[tuple[str, bool]]:
         for field, value in config[f"mqtt{slot}_credentials"].items():
             commands.append((f"set mqtt{slot}.{field} {value}", True))
     commands.append((f"password {config['admin_password']}", True))
+    if config.get("room_server"):
+        commands.append((f"set guest.password {config['guest_password']}", True))
     return commands
 
 
@@ -429,20 +440,16 @@ def gather_config(cli: DeviceCLI, current: dict[str, str], *, room_server: bool 
     credentials2 = gather_broker_credentials(2, mqtt2)
 
     print("\nStep 4 of 4 - Security")
-    while True:
-        admin_password = ask_text("New device admin password (8-15 characters)", maximum=15,
-                                  validator=lambda x: 8 <= len(x) <= 15, secret=True)
-        confirm_password = getpass.getpass("Confirm device admin password: ")
-        if admin_password == confirm_password:
-            break
-        print("  Passwords did not match. Try again.")
+    admin_password = ask_confirmed_password("device admin password")
+    guest_password = ask_confirmed_password("room guest password") if room_server else None
 
     return {
         "name": name, "ssid": ssid, "wifi_password": wifi_password,
         "radio_name": radio_name, "freq": freq, "bw": bw, "sf": sf, "cr": cr,
         "tx": tx, "repeat": repeat, "iata": iata, "mqtt1": mqtt1, "mqtt2": mqtt2,
         "mqtt1_credentials": credentials1, "mqtt2_credentials": credentials2,
-        "admin_password": admin_password, "room_server": room_server,
+        "admin_password": admin_password, "guest_password": guest_password,
+        "room_server": room_server,
     }
 
 
@@ -489,6 +496,8 @@ def verify_saved(cli: DeviceCLI, config: dict) -> None:
         elif actual.lower() == wanted.lower():
             continue
         raise SetupError(f"Verification failed for {key}: device has '{actual}', expected '{wanted}'.")
+    if config.get("room_server") and cli.value("guest.password") != config["guest_password"]:
+        raise SetupError("Verification failed for the room guest password.")
 
 
 def wait_for_reboot(port: str, timeout: int = 35) -> DeviceCLI:
@@ -535,7 +544,8 @@ def wait_for_webui(ip: str, timeout: int = 20) -> None:
         try:
             with urllib.request.urlopen(url, timeout=2) as response:
                 payload = json.loads(response.read().decode("utf-8"))
-            if payload.get("board") and str(payload.get("role", "")).lower() == "repeater":
+            if payload.get("board") and str(payload.get("role", "")).lower() in (
+                    "repeater", "room_server"):
                 print()
                 return
             last = "unexpected device response"
@@ -563,11 +573,15 @@ def self_test() -> None:
         "tx": 22, "repeat": True, "iata": "YYZ", "mqtt1": "meshcore-ca-1",
         "mqtt2": "meshcore-ca-2", "ssid": "Example", "wifi_password": "secret",
         "mqtt1_credentials": {}, "mqtt2_credentials": {}, "admin_password": "adminpass",
+        "guest_password": "guestpass", "room_server": True,
     }
     commands = build_commands(sample)
     assert ("set path.hash.mode 2", False) in commands
     assert ("set radio 910.525,62.5,7,5", False) in commands
     assert ("set wifi.pwd secret", True) in commands
+    assert ("set guest.password guestpass", True) in commands
+    observer = dict(sample, room_server=False, guest_password=None)
+    assert not any(command.startswith("set guest.password ") for command, _ in build_commands(observer))
     print("Configurator self-test passed")
 
 
