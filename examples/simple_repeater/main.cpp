@@ -19,7 +19,11 @@ SimpleMeshTables tables;
 MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
 
 void halt() {
+#ifdef NEONPOCKET_RCC6_REPEATER
+  while (1) delay(1000);
+#else
   while (1) ;
+#endif
 }
 
 static char command[160];
@@ -61,6 +65,9 @@ void setup() {
 #endif
 
   if (!radio_init()) {
+#ifdef NEONPOCKET_RCC6_REPEATER
+    Serial.println("ERROR: RCC6 radio initialization failed");
+#endif
     MESH_DEBUG_PRINTLN("Radio init failed!");
     halt();
   }
@@ -73,7 +80,14 @@ void setup() {
   fs = &InternalFS;
   IdentityStore store(InternalFS, "");
 #elif defined(ESP32)
+#ifdef NEONPOCKET_RCC6_REPEATER
+  if (!SPIFFS.begin(false)) {
+    Serial.println("ERROR: storage mount failed; refusing to format identity/settings");
+    halt();
+  }
+#else
   SPIFFS.begin(true);
+#endif
   fs = &SPIFFS;
   IdentityStore store(SPIFFS, "/identity");
 #elif defined(RP2040_PLATFORM)

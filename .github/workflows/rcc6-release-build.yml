@@ -1,0 +1,103 @@
+name: RCC6 MQTT Repeater Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up PlatformIO
+        uses: ./.github/actions/setup-build-environment
+
+      - name: Run upstream host tests
+        run: pio test -e native
+
+  build-rcc6:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up PlatformIO
+        uses: ./.github/actions/setup-build-environment
+
+      - name: Verify RCC6 defaults and broker parity
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          presets = Path("src/helpers/MQTTPresets.h").read_text(encoding="utf-8")
+          body = presets.split("static const MQTTPresetDef MQTT_PRESETS", 1)[1]
+          names = re.findall(r'^\s*\{\s*"([^"]+)"', body, re.M)
+          assert len(names) == 34, names
+          assert len(set(names)) == 34, names
+          assert "meshcore-ca-1" in names and "meshcore-ca-2" in names
+
+          config = Path("variants/heltec_rcc6/platformio.ini").read_text(encoding="utf-8")
+          assert 'MQTT_DEFAULT_SLOT1_PRESET=\'"meshcore-ca-1"\'' in config
+          assert 'MQTT_DEFAULT_SLOT2_PRESET=\'"meshcore-ca-2"\'' in config
+          PY
+
+      - name: Build the headless RCC6 observer
+        run: |
+          pio run -e heltec_rcc6_repeater_observer_mqtt
+          pio run -e heltec_rcc6_repeater_observer_mqtt -t mergebin
+
+      - name: Verify binary layout and package RC1
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          build = Path(".pio/build/heltec_rcc6_repeater_observer_mqtt")
+          app = (build / "firmware.bin").read_bytes()
+          merged = (build / "firmware-merged.bin").read_bytes()
+
+          assert app[0] == 0xE9, "invalid ESP app image"
+          assert app[2] == 0x02, "RCC6 app is not DIO"
+          assert merged[0x10000:0x10000 + len(app)] == app, "merged app mismatch"
+          assert len(merged) < 0xC90000, "recovery image reaches the SPIFFS data partition"
+
+          out = Path("release")
+          out.mkdir()
+          app_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-app.bin"
+          recovery_name = "NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-full-recovery-preserves-meshcore-settings.bin"
+          (out / app_name).write_bytes(app)
+          (out / recovery_name).write_bytes(merged)
+
+          files = [out / app_name, out / recovery_name]
+          sums = "".join(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+              for path in files
+          )
+          (out / "SHA256SUMS.txt").write_text(sums, encoding="ascii")
+          (out / "BUILD_INFO.txt").write_text(
+              "Git commit: ${{ github.event.pull_request.head.sha || github.sha }}\n"
+              "Target: heltec_rcc6_repeater_observer_mqtt\n"
+              "MeshCore base: v1.17.0\n"
+              "Observer base: agessaman/MeshCore observer-firmware b744b42aabb454b277fe133214c7d93d23da484b\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload exact RC1 candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonPocketMC-RCC6-Repeater-${{ github.event.pull_request.head.sha || github.sha }}
+          path: release/
+          if-no-files-found: error

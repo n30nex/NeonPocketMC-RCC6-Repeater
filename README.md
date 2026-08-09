@@ -1,133 +1,121 @@
-## About MeshCore
+# NeonPocketMC-RCC6-Repeater
 
-MeshCore is a lightweight, portable C++ library that enables multi-hop packet routing for embedded projects using LoRa and other packet radios. It is designed for developers who want to create resilient, decentralized communication networks that work without the internet.
+Headless MeshCore repeater and Wi-Fi MQTT observer firmware for the **Heltec RadioCore RCC6-L62 / SX1262**.
 
-## 🔍 What is MeshCore?
+> [!WARNING]
+> Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. The attached RCC6 TFT is deliberately powered off to reduce RAM use, power draw, and failure surface.
 
-MeshCore now supports a range of LoRa devices, allowing for easy flashing without the need to compile firmware manually. Users can flash a pre-built binary using tools like Adafruit ESPTool and interact with the network through a serial console.
-MeshCore provides the ability to create wireless mesh networks, similar to Meshtastic and Reticulum but with a focus on lightweight multi-hop packet routing for embedded projects. Unlike Meshtastic, which is tailored for casual LoRa communication, or Reticulum, which offers advanced networking, MeshCore balances simplicity with scalability, making it ideal for custom embedded solutions, where devices (nodes) can communicate over long distances by relaying messages through intermediate nodes. This is especially useful in off-grid, emergency, or tactical situations where traditional communication infrastructure is unavailable.
+This project is based on MeshCore 1.17.0 and the production MQTT observer work from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/b744b42aabb454b277fe133214c7d93d23da484b). It adds the hardware mapping already proven by the NeonPocket RCC6 companion project.
 
-> **MQTT Observer Setup** — Prebuilt observer firmware, docs, and a changelog are at
-> [observer.gessaman.com](https://observer.gessaman.com/). See the
-> [MQTT Implementation Guide](./MQTT_IMPLEMENTATION.md) for configuration, CLI commands, and
-> troubleshooting.
+## What it does
 
-## ⚡ Key Features
+- Runs a normal MeshCore repeater on the RCC6 SX1262 radio.
+- Joins a local 2.4 GHz Wi-Fi network.
+- Publishes observed mesh traffic to up to two MQTT brokers concurrently.
+- Ships all 34 broker presets from the upstream observer firmware.
+- Defaults slot 1 to `mqtt1.meshcore.ca` and slot 2 to `mqtt2.meshcore.ca`.
+- Provides a first-boot browser setup wizard and the full serial/admin CLI.
+- Keeps six MQTT slot configurations on disk; the non-PSRAM RCC6 exposes three runtime slots and permits two active connections.
+- Mounts MeshCore storage fail-closed. A mount failure will not silently format identity, contacts, channels, or settings.
 
-* Multi-Hop Packet Routing
-  * Devices can forward messages across multiple nodes, extending range beyond a single radio's reach.
-  * Supports up to a configurable number of hops to balance network efficiency and prevent excessive traffic.
-  * Nodes use fixed roles where "Companion" nodes are not repeating messages at all to prevent adverse routing paths from being used.
-* Supports LoRa Radios – Works with Heltec, RAK Wireless, and other LoRa-based hardware.
-* Decentralized & Resilient – No central server or internet required; the network is self-healing.
-* Low Power Consumption – Ideal for battery-powered or solar-powered devices.
-* Simple to Deploy – Pre-built example applications make it easy to get started.
+## First boot
 
-## 🎯 What Can You Use MeshCore For?
+1. Attach a tuned LoRa antenna before powering or transmitting.
+2. Flash the application image at `0x10000`, or use the full recovery image at `0x0` only when the bootloader/partition table also needs recovery.
+3. Reboot. The headless unit creates `MeshCore-Setup-XXXX` when no Wi-Fi credentials are stored.
+4. Join that AP and open `http://192.168.4.1/` if the captive portal does not appear.
+5. Configure Wi-Fi, radio settings, an IATA/region code, MQTT slots, and a new admin password. Save and reboot.
 
-* Off-Grid Communication: Stay connected even in remote areas.
-* Emergency Response & Disaster Recovery: Set up instant networks where infrastructure is down.
-* Outdoor Activities: Hiking, camping, and adventure racing communication.
-* Tactical & Security Applications: Military, law enforcement, and private security use cases.
-* IoT & Sensor Networks: Collect data from remote sensors and relay it back to a central location.
+The setup AP is open, matching upstream behavior. Provision it at close range on a trusted network and change the default admin password immediately.
 
-## 🚀 How to Get Started
+Serial recovery/configuration is available at 115200 baud over USB:
 
-- Watch the [MeshCore QuickStart Playlist](https://www.youtube.com/watch?v=iaFltojJrAc&list=PLshzThxhw4O4WU_iZo3NmNZOv6KMrUuF9) by The Comms Channel
-- Watch the [MeshCore Technical Presentation](https://www.youtube.com/watch?v=OwmkVkZQTf4) by Liam Cottle.
-- Read through our [Frequently Asked Questions](./docs/faq.md) and [Documentation](https://docs.meshcore.io).
-- Flash the MeshCore firmware on a supported device.
-- Connect with a supported client.
-
-For developers:
-
-- Install [PlatformIO](https://docs.platformio.org) in [Visual Studio Code](https://code.visualstudio.com).
-- Clone and open the MeshCore repository in Visual Studio Code.
-- See the example applications you can modify and run:
-  - [Companion Radio](./examples/companion_radio) - For use with an external chat app, over BLE, USB or Wi-Fi.
-  - [KISS Modem](./examples/kiss_modem) - Serial KISS protocol bridge for host applications. ([protocol docs](./docs/kiss_modem_protocol.md))
-  - [Simple Repeater](./examples/simple_repeater) - Extends network coverage by relaying messages.
-  - [Simple Room Server](./examples/simple_room_server) - A simple BBS server for shared Posts.
-  - [Simple Secure Chat](./examples/simple_secure_chat) - Secure terminal based text communication between devices.
-  - [Simple Sensor](./examples/simple_sensor) - Remote sensor node with telemetry and alerting.
-
-The Simple Secure Chat example can be interacted with through the Serial Monitor in Visual Studio Code, or with a Serial USB Terminal on Android.
-
-## ⚡️ MeshCore Flasher
-
-We have prebuilt firmware ready to flash on supported devices.
-
-- Launch https://meshcore.io/flasher
-- Select a supported device
-- Flash one of the firmware types:
-  - Companion, Repeater or Room Server
-- Once flashing is complete, you can connect with one of the MeshCore clients below.
-
-## 📱 MeshCore Clients
-
-**Companion Firmware**
-
-The companion firmware can be connected to via BLE, USB or Wi-Fi depending on the firmware type you flashed.
-
-- Web: https://app.meshcore.nz
-- Android: https://play.google.com/store/apps/details?id=com.liamcottle.meshcore.android
-- iOS: https://apps.apple.com/us/app/meshcore/id6742354151?platform=iphone
-- NodeJS: https://github.com/liamcottle/meshcore.js
-- Python: https://github.com/fdlamotte/meshcore-cli
-
-**Repeater and Room Server Firmware**
-
-The repeater and room server firmware can be set up via USB in the web config tool.
-
-- https://config.meshcore.io
-
-They can also be managed via LoRa in the mobile app by using the Remote Management feature.
-
-## 🛠 Hardware Compatibility
-
-MeshCore is designed for devices listed in the [MeshCore Flasher](https://meshcore.io/flasher)
-
-## 📜 License
-
-MeshCore is open-source software released under the MIT License. You are free to use, modify, and distribute it for personal and commercial projects.
-
-## Contributing
-
-Please submit PR's using 'dev' as the base branch!
-For minor changes just submit your PR and we'll try to review it, but for anything more 'impactful' please open an Issue first and start a discussion. It is better to sound out what it is you want to achieve first, and try to come to a consensus on what the best approach is, especially when it impacts the structure or architecture of this codebase.
-
-Here are some general principles you should try to adhere to:
-* Keep it simple. Please, don't think like a high-level lang programmer. Think embedded, and keep code concise, without any unnecessary layers.
-* No dynamic memory allocation, except during setup/begin functions.
-* Use the same brace and indenting style that's in the core source modules. (A .clang-format is probably going to be added soon, but please do NOT retroactively re-format existing code. This just creates unnecessary diffs that make finding problems harder)
-
-Help us prioritize! Please react with thumbs-up to issues/PRs you care about most. We look at reaction counts when planning work.
-
-### Running unit tests
-
-To run unit tests, run the following command:
-
-```bash
-pio test --environment native --verbose
+```text
+set wifi.ssid Your 2.4 GHz SSID
+set wifi.pwd Your WiFi password
+set mqtt.iata YYZ
+set mqtt1.preset meshcore-ca-1
+set mqtt2.preset meshcore-ca-2
+get mqtt.status
+get mqtt.presets
 ```
 
-## Road-Map / To-Do
+Any preset can replace either active slot. For example:
 
-There are a number of fairly major features in the pipeline, with no particular time-frames attached yet. In very rough chronological order:
-- [X] Companion radio: UI redesign
-- [X] Repeater + Room Server: add ACL's (like Sensor Node has)
-- [X] Standardise Bridge mode for repeaters
-- [ ] Repeater/Bridge: Standardise the Transport Codes for zoning/filtering
-- [X] Core + Repeater: enhanced zero-hop neighbour discovery
-- [ ] Core: round-trip manual path support
-- [ ] Companion + Apps: support for multiple sub-meshes (and 'off-grid' client repeat mode)
-- [ ] Core + Apps: support for LZW message compression
-- [ ] Core: dynamic CR (Coding Rate) for weak vs strong hops
-- [ ] Core: new framework for hosting multiple virtual nodes on one physical device
-- [ ] V2 protocol spec: discussion and consensus around V2 packet protocol, including path hashes, new encryption specs, etc
+```text
+set mqtt2.preset meshmapper
+set mqtt1.preset none
+set mqtt1.preset custom
+set mqtt1.server wss://broker.example:443/mqtt
+```
 
-## 📞 Get Support
+## Built-in broker presets
 
-- Report bugs and request features on the [GitHub Issues](https://github.com/ripplebiz/MeshCore/issues) page.
-- Find additional guides and components on [my site](https://buymeacoffee.com/ripplebiz).
-- Join [MeshCore Discord](https://meshcore.gg) to chat with the developers and get help from the community.
+The RC1 build preserves all 34 presets from the pinned observer source. The two Canadian endpoints are the only RCC6-specific default change.
+
+| Preset | Endpoint |
+|---|---|
+| `analyzer-us` | `wss://mqtt-us-v1.letsmesh.net:443/mqtt` |
+| `analyzer-eu` | `wss://mqtt-eu-v1.letsmesh.net:443/mqtt` |
+| `nz-analyzer` | `wss://meshcore-mqtt-1.baird.io:443` |
+| `meshmapper` | `wss://mqtt.meshmapper.net:443/mqtt` |
+| `meshrank` | `mqtts://meshrank.net:8883` |
+| `waev` | `wss://mqtt.waev.app:443/mqtt` |
+| `meshomatic` | `wss://us-east.meshomatic.net:443/mqtt` |
+| `cascadiamesh` | `wss://mqtt-v1.cascadiamesh.org:443/mqtt` |
+| `tennmesh` | `mqtt://mqtt.tennmesh.com:1883` |
+| `nashmesh` | `mqtt://mqtt.nashme.sh:1883` |
+| `ctmesh` | `mqtt://mqtt.ctmesh.org:1883` |
+| `chimesh` | `wss://mqtt.chimesh.org:443` |
+| `meshat.se` | `wss://meshcore-mqtt.meshat.se:443` |
+| `eastidahomesh` | `mqtt://live.eastidahomesh.com:1883` |
+| `coloradomesh` | `wss://mqtt.meshcore.coloradomesh.org:443` |
+| `dutchmeshcore-1` | `wss://collector1.dutchmeshcore.nl:443/mqtt` |
+| `dutchmeshcore-2` | `wss://collector2.dutchmeshcore.nl:443/mqtt` |
+| **`meshcore-ca-1`** | **`wss://mqtt1.meshcore.ca:443/mqtt`** |
+| **`meshcore-ca-2`** | **`wss://mqtt2.meshcore.ca:443/mqtt`** |
+| `meshcore-fi` | `wss://mc-mqtt.meshcore.fi:443/` |
+| `okimesh-1` | `wss://mqtt1.okimesh.org:9002/mqtt` |
+| `okimesh-2` | `wss://mqtt2.okimesh.org:9002/mqtt` |
+| `inwmesh` | `mqtts://scope.inwmesh.org:8883` |
+| `bostonmesh` | `wss://mqttmc01.bostonme.sh:443/mqtt` |
+| `rflab` | `wss://mqtt.rflab.io:443` |
+| `ipnt.uk` | `wss://mqtt.ipnt.uk:443` |
+| `flmesh` | `wss://mcmqtt.jntconnections.com:443` |
+| `corecomms` | `wss://mqtt.corecomms.net:443/mqtt` |
+| `meshtexas` | `wss://mqtt.meshtexas.org:443/mqtt` |
+| `mesh-chaun14` | `mqtt://mqtt.mesh.chaun14.fr:1884` |
+| `wcmesh` | `wss://mqtt.wcmesh.com:443` |
+| `atvirastinklas` | `wss://mqtt-mc.atvirastinklas.lt:443` |
+| `gomesh` | `wss://mqtt.gomesh.dev:443` |
+| `idahomesh` | `wss://mqtt.idahomesh.org:443/mqtt` |
+
+Some community brokers require their own credentials or local enrollment. The setup portal and CLI expose the fields supported by each preset, and `custom` allows an operator-supplied broker.
+
+## Flashing
+
+Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html), replace `COMx`, and use exactly one command:
+
+Application update, preserving the installed bootloader, partitions, and MeshCore data:
+
+```powershell
+esptool --chip esp32c6 --port COMx write-flash 0x10000 NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-app.bin
+```
+
+Full recovery, rewriting the bootloader/partitions/application while leaving the later SPIFFS data partition untouched:
+
+```powershell
+esptool --chip esp32c6 --port COMx write-flash 0x0 NeonPocketMC-RCC6-Repeater-v1.0.0-rc.1-full-recovery-preserves-meshcore-settings.bin
+```
+
+Do not erase the whole flash if you want to retain identity and settings. Verify downloads with `SHA256SUMS.txt`.
+
+## Source and scope
+
+- MeshCore base: 1.17.0.
+- MQTT observer base: `agessaman/MeshCore` `observer-firmware` at `b744b42aabb454b277fe133214c7d93d23da484b`.
+- RCC6 hardware mapping provenance: the separately tested `NeonPocketMC-RCC6` companion project.
+- Release target: `heltec_rcc6_repeater_observer_mqtt` only.
+- License: MIT; dependency notices and licenses remain in the source tree.
+
+The RC1 release is intentionally marked as a prerelease until it receives an RCC6 on-device Wi-Fi, MQTT, LoRa TX/RX, and long-idle smoke test.
