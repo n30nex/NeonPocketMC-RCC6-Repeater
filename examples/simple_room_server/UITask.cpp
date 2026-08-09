@@ -1,6 +1,6 @@
 #include "UITask.h"
 #include "MyMesh.h"
-#include "NeonPocketBoot.h"
+#include "NeonPocketSplash.h"
 
 #include <Arduino.h>
 #include <string.h>
@@ -37,7 +37,8 @@ void UITask::begin(MyMesh* mesh, NodePrefs* node_prefs,
   snprintf(version, sizeof(version), "%s", firmware_version);
   char* dash = strchr(version, '-');
   if (dash) *dash = 0;
-  snprintf(_version_info, sizeof(_version_info), "%s | %s", version, build_date);
+  NeonPocketSplash::shortVersion(_version_info, sizeof(_version_info), version);
+  snprintf(_build_info, sizeof(_build_info), "%s", build_date);
 }
 
 void UITask::renderCard(int x, int width, const char* label,
@@ -53,8 +54,8 @@ void UITask::renderCard(int x, int width, const char* label,
 
 void UITask::renderCurrScreen() {
   const unsigned long elapsed = millis() - _started_at;
-  if (elapsed < NeonPocketBoot::DURATION_MILLIS) {
-    NeonPocketBoot::draw(*_display, elapsed, "MESHCORE ROOM SERVER", _version_info);
+  if (elapsed < NeonPocketSplash::DURATION_MILLIS) {
+    NeonPocketSplash::drawFrame(*_display, elapsed, _version_info, _build_info);
     return;
   }
 
@@ -203,11 +204,11 @@ void UITask::loop() {
   if (!_display->isOn()) return;
   const unsigned long now = millis();
   if ((int32_t)(now - _next_refresh) >= 0) {
-    const bool booting = now - _started_at < NeonPocketBoot::DURATION_MILLIS;
-    _display->startFrame(booting ? NeonPocketBoot::BG : UIColor::window_bkg);
+    const bool booting = now - _started_at < NeonPocketSplash::DURATION_MILLIS;
+    _display->startFrame(booting ? NeonPocketSplash::BLACK : UIColor::window_bkg);
     renderCurrScreen();
     _display->endFrame();
-    _next_refresh = millis() + (booting ? NeonPocketBoot::FRAME_MILLIS : 1000);
+    _next_refresh = millis() + (booting ? NeonPocketSplash::FRAME_MILLIS : 1000);
   }
   if ((int32_t)(millis() - _auto_off) >= 0) _display->turnOff();
 }
