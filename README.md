@@ -44,7 +44,7 @@ The USB configurator accepts only the two full Room Server profiles (and the exi
 
 ## What each role does
 
-- **Repeater/observer:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the dashboard. The published [`v1.0.0-rc.2`](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.0.0-rc.2) image remains this role.
+- **Repeater/observer:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the dashboard. It is included alongside the Room Server profiles in [`v1.1.0-rc.1`](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.1.0-rc.1).
 - **Room Server, both sizes:** hosts the standard MeshCore room/client protocol with 32 recent posts held in RAM. A reboot clears those buffered posts. Repeating is optional but defaults off; a separate repeater is recommended.
 - **Room Server, minimal:** LoRa room service and USB CLI only. It has no Wi-Fi, Web dashboard, or MQTT code to configure.
 - **Room Server, full:** adds 2.4 GHz AP/STA onboarding, the authenticated dashboard, and one-way MQTT observation. MQTT data is never injected into RF.
@@ -55,7 +55,7 @@ All roles use fail-closed MeshCore storage and default their own adverts to **3-
 
 | Image | Setup after flashing |
 |---|---|
-| Repeater/observer `v1.0.0-rc.2` | Supplied Windows/Linux network wizard |
+| Repeater/observer `v1.1.0-rc.1` | Supplied Windows/Linux network wizard |
 | Room Server full headless or full TFT | `v1.1.0-rc.1` network wizard; it also changes both room passwords |
 | Room Server minimal headless or minimal TFT | USB serial CLI or the generic MeshCore USB configurator; no network wizard |
 
@@ -63,7 +63,7 @@ Always attach a tuned LoRa antenna before powering or transmitting. Flash the se
 
 ### Guided setup for observer and full profiles
 
-Download the configurator ZIP attached beside the selected firmware. The planned Room Server prerelease name is `NeonPocketMC-RCC6-Room-Server-v1.1.0-rc.1-configurator.zip`.
+Download `NeonPocketMC-RCC6-Server-v1.1.0-rc.1-configurator.zip` from the same release as the selected firmware.
 
 - **Windows:** double-click `Configure-RCC6-Windows.cmd`.
 - **Linux:** open the extracted folder in a terminal and run `sh configure-rcc6-linux.sh`.
@@ -238,12 +238,12 @@ Some community brokers require their own credentials or local enrollment. The se
 
 Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html) and replace `COMx` with the port shown by your computer.
 
-The published observer files remain:
+The current observer files are:
 
-- `NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-app.bin`
-- `NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-full-recovery-preserves-meshcore-settings.bin`
+- `NeonPocketMC-RCC6-Repeater-v1.1.0-rc.1-app.bin`
+- `NeonPocketMC-RCC6-Repeater-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
 
-The planned Room Server `v1.1.0-rc.1` release uses these profile-specific names:
+Room Server `v1.1.0-rc.1` uses these profile-specific names:
 
 | Profile | Application update | Recovery image |
 |---|---|---|
@@ -252,7 +252,7 @@ The planned Room Server `v1.1.0-rc.1` release uses these profile-specific names:
 | Full headless | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
 | Full TFT | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
 
-If the Room Server release is not yet listed on the Releases page, do not substitute a similarly named observer or development artifact.
+Do not substitute a similarly named observer, profile, or development artifact.
 
 Normal application update, preserving the installed bootloader, partitions, and MeshCore data:
 

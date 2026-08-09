@@ -1,15 +1,14 @@
-# Releasing Firmware
+# Releasing NeonPocketMC RCC6 server firmware
 
-GitHub Actions is set up to automatically build and release firmware.
+The repository workflows build and verify firmware; they do **not** create a GitHub Release automatically.
 
-It will automatically build firmware when one of the following tag formats are pushed.
+1. Merge the intended source to `main`.
+2. Require successful exact-`main` runs of both `RCC6 MQTT Repeater Build` and `RCC6 Room Server Build`.
+3. Download the repeater artifact plus all four Room Server artifacts from those runs.
+4. Rename each application and merged recovery image to the public filenames documented in `README.md`.
+5. Package the Windows/Linux configurator, exact source and retained license notices.
+6. Create one aggregate `SHA256SUMS.txt` covering every attached asset.
+7. Create a prerelease tag such as `v1.1.0-rc.1` at the exact `main` commit and upload the verified files.
+8. Download every public asset anonymously and verify its size and SHA-256 before announcing the release.
 
-- `companion-v1.0.0`
-- `repeater-v1.0.0`
-- `room-server-v1.0.0`
-
-> NOTE: replace `v1.0.0` with the version you want to release as.
-
-- You can push one, or more tags on the same commit, and they will all build separately.
-- Once the firmware has been built, a new (draft) GitHub Release will be created.
-- You will need to update the release notes, and publish it.
+Never publish generic `firmware.bin` names, mix artifacts from different commits, erase SPIFFS for a normal update, or imply that a tag-triggered release workflow exists.
