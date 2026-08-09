@@ -42,41 +42,66 @@ The USB configurator accepts only the two full Room Server profiles (and the exi
 - The full dashboard reuses the authenticated WebConfig API. Room activity is read-only: there are no HTTP endpoints for posting, deleting, changing clients, or injecting MQTT traffic into RF.
 - A deliberate factory reset is USB-serial only: enter `factory-reset CONFIRM`. It erases MeshCore/MQTT files, clears stored Wi-Fi credentials from ESP32 NVS on full builds, waits for the reply to land, and reboots. This also erases the room identity and cannot be undone.
 
-## What it does
+## What each role does
 
-- Runs a normal MeshCore repeater on the RCC6 SX1262 radio.
-- Joins a local 2.4 GHz Wi-Fi network.
-- Publishes observed mesh traffic to up to two MQTT brokers concurrently.
-- Ships all 34 broker presets from the upstream observer firmware.
-- Defaults slot 1 to `mqtt1.meshcore.ca` and slot 2 to `mqtt2.meshcore.ca`.
-- Provides a guided USB setup tool plus a phone/desktop Web dashboard.
-- Automatically starts the dashboard on the configured LAN after every boot.
-- Defaults this repeater's own adverts to **3-byte path hashes** (mode `2`). MeshCore 1.17 still forwards incoming 1-, 2-, and 3-byte packets.
-- Keeps six MQTT slot configurations on disk; the non-PSRAM RCC6 exposes three runtime slots and permits two active connections.
-- Mounts MeshCore storage fail-closed. A mount failure will not silently format identity, contacts, channels, or settings.
+- **Repeater/observer:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the dashboard. The published [`v1.0.0-rc.2`](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.0.0-rc.2) image remains this role.
+- **Room Server, both sizes:** hosts the standard MeshCore room/client protocol with 32 recent posts held in RAM. A reboot clears those buffered posts. Repeating is optional but defaults off; a separate repeater is recommended.
+- **Room Server, minimal:** LoRa room service and USB CLI only. It has no Wi-Fi, Web dashboard, or MQTT code to configure.
+- **Room Server, full:** adds 2.4 GHz AP/STA onboarding, the authenticated dashboard, and one-way MQTT observation. MQTT data is never injected into RF.
 
-## Easiest setup: keep USB connected
+All roles use fail-closed MeshCore storage and default their own adverts to **3-byte path hashes** (mode `2`). MeshCore 1.17 still accepts and forwards incoming 1-, 2-, and 3-byte paths.
 
-1. Attach a tuned LoRa antenna before powering or transmitting.
-2. Flash the RC2 application image at `0x10000` and leave USB connected.
-3. Download this repository (or the configurator ZIP from the [RC2 release](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.0.0-rc.2)).
-4. **Windows:** double-click `Configure-RCC6-Windows.cmd`.
-5. **Linux:** open the downloaded folder in a terminal and run `sh configure-rcc6-linux.sh`.
+## Pick the correct setup path
+
+| Image | Setup after flashing |
+|---|---|
+| Repeater/observer `v1.0.0-rc.2` | Supplied Windows/Linux network wizard |
+| Room Server full headless or full TFT | `v1.1.0-rc.1` network wizard; it also changes both room passwords |
+| Room Server minimal headless or minimal TFT | USB serial CLI or the generic MeshCore USB configurator; no network wizard |
+
+Always attach a tuned LoRa antenna before powering or transmitting. Flash the selected application image at `0x10000`, leave USB connected, and do not deploy until the radio settings and passwords have been changed.
+
+### Guided setup for observer and full profiles
+
+Download the configurator ZIP attached beside the selected firmware. The planned Room Server prerelease name is `NeonPocketMC-RCC6-Room-Server-v1.1.0-rc.1-configurator.zip`.
+
+- **Windows:** double-click `Configure-RCC6-Windows.cmd`.
+- **Linux:** open the extracted folder in a terminal and run `sh configure-rcc6-linux.sh`.
 
 The first run prepares a small private Python helper. The wizard then:
 
-- finds the RCC6 and refuses to touch the wrong firmware;
-- asks plain numbered questions for the node name and regional radio preset;
-- sets frequency, bandwidth, spreading factor, coding rate, TX power, RX gain, and repeater mode;
-- enforces 3-byte advert hashes;
+- finds the RCC6 and refuses the wrong board, role, or minimal profile;
+- asks plain numbered questions for the node name and legal regional radio values;
+- sets frequency, bandwidth, spreading factor, coding rate, TX power, RX gain, repeat mode, and 3-byte advert hashes;
 - offers the Canadian MQTT defaults or every broker built into the firmware;
-- stores the 2.4 GHz Wi-Fi and broker credentials without printing or logging them;
-- asks for a new admin password, shows a final review, and changes nothing until confirmed;
-- reads every saved value back, reboots, waits for Wi-Fi and the Web dashboard, then prints the exact IP and says when USB is safe to disconnect.
+- accepts 2.4 GHz Wi-Fi and broker credentials without printing or logging them;
+- asks for a hidden, confirmed admin password and, on a Room Server, a separate hidden, confirmed room guest password;
+- shows a final review and changes nothing until confirmed;
+- reads the saved non-secret values and room guest password back without displaying secrets, reboots, waits for Wi-Fi and the dashboard, then prints the exact IP.
 
 If anything fails, it stops and tells the user to keep USB connected.
 
+### Minimal Room Server setup
+
+Minimal images intentionally reject the network wizard. Open a 115200-baud USB serial terminal and enter values legal for your location and matching the rest of your mesh:
+
+```text
+set name Hilltop Room
+set radio 910.525,62.5,7,5
+set tx 22
+set radio.rxgain on
+set repeat off
+set path.hash.mode 2
+password Choose-A-New-Admin-Password
+set guest.password Choose-A-New-Room-Password
+reboot
+```
+
+The compile-time `password` / `hello` credentials are onboarding defaults only. Never deploy a Room Server until both have been replaced. The minimal profiles have no IP address or webpage; use USB serial or supported remote MeshCore administration later.
+
 ## Web dashboard
+
+This section applies only to the repeater/observer and the two **full** Room Server profiles. Minimal profiles do not start Wi-Fi or a Web server.
 
 On a brand-new or unconfigured unit, the RCC6 automatically creates `MeshCore-Setup-XXXX`. Join it and browse to [http://192.168.4.1/](http://192.168.4.1/) if the captive setup page does not open by itself.
 
@@ -136,19 +161,13 @@ The setup AP is open, matching upstream behavior. Provision it at close range on
 
 The release's configurator ZIP contains this complete guide as `SETUP_AND_HELP.md`, so it remains available offline after download.
 
-## Manual setup and recovery
+## Manual full-network setup and recovery
 
 Prefer a browser? The upstream observer project provides the [agessaman Web Flasher](https://observer.gessaman.com/) and its [full setup manual](https://observer.gessaman.com/docs). This firmware is based on the [`agessaman/MeshCore` observer branch](https://github.com/agessaman/MeshCore/tree/observer-firmware). The generic [MeshCore USB configurator](https://config.meshcore.io/) remains useful for ordinary MeshCore settings, but it does not replace this firmware's MQTT-specific wizard.
 
-Serial recovery/configuration is available at 115200 baud over USB. A complete minimal manual setup is:
+Serial recovery/configuration is available at 115200 baud over USB. After the common name/radio/password commands above, a full Room Server or observer can be configured manually with:
 
 ```text
-set name Hilltop Repeater
-set radio 910.525,62.5,7,5
-set tx 22
-set radio.rxgain on
-set repeat on
-set path.hash.mode 2
 set wifi.ssid Your 2.4 GHz SSID
 set wifi.pwd Your WiFi password
 set mqtt.iata YYZ
@@ -156,7 +175,6 @@ set mqtt1.preset meshcore-ca-1
 set mqtt2.preset meshcore-ca-2
 set mqtt.rx on
 set mqtt.tx advert
-password Choose-A-New-Password
 get mqtt.status
 get mqtt.presets
 reboot
@@ -171,11 +189,11 @@ set mqtt1.preset custom
 set mqtt1.server wss://broker.example:443/mqtt
 ```
 
-`set path.hash.mode 2` selects 3-byte path hashes for this repeater's own advert broadcasts. It does **not** limit forwarding: this MeshCore 1.17 repeater forwards packets using 1-, 2-, or 3-byte path hashes.
+For a Room Server, keep `set repeat off` unless its combined role is intentional. For the dedicated observer/repeater, use `set repeat on`. `set path.hash.mode 2` selects 3-byte hashes for the device's own adverts; it does **not** limit which MeshCore 1.17 path sizes are received or forwarded.
 
 ## Built-in broker presets
 
-The RC2 build preserves all 34 presets from the pinned observer source. The two Canadian endpoints are the only RCC6-specific default change.
+The observer and full Room Server profiles preserve all 34 presets from the pinned observer source. The two Canadian endpoints are the only RCC6-specific default change. Minimal Room Server profiles do not contain MQTT.
 
 | Preset | Endpoint |
 |---|---|
@@ -218,21 +236,37 @@ Some community brokers require their own credentials or local enrollment. The se
 
 ## Flashing
 
-Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html), replace `COMx`, and use exactly one command:
+Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html) and replace `COMx` with the port shown by your computer.
 
-Application update, preserving the installed bootloader, partitions, and MeshCore data:
+The published observer files remain:
 
-```powershell
-esptool --chip esp32c6 --port COMx write-flash 0x10000 NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-app.bin
+- `NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-app.bin`
+- `NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-full-recovery-preserves-meshcore-settings.bin`
+
+The planned Room Server `v1.1.0-rc.1` release uses these profile-specific names:
+
+| Profile | Application update | Recovery image |
+|---|---|---|
+| Minimal headless | `NeonPocketMC-RCC6-Room-Server-minimal-headless-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-minimal-headless-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal TFT | `NeonPocketMC-RCC6-Room-Server-minimal-tft-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-minimal-tft-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full headless | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full TFT | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+
+If the Room Server release is not yet listed on the Releases page, do not substitute a similarly named observer or development artifact.
+
+Normal application update, preserving the installed bootloader, partitions, and MeshCore data:
+
+```text
+python -m esptool --chip esp32c6 --port COMx write-flash 0x10000 EXACT-APPLICATION-FILENAME.bin
 ```
 
-Full recovery, rewriting the bootloader/partitions/application while leaving the later SPIFFS data partition untouched:
+Recovery only, rewriting the bootloader/partitions/application while leaving the later SPIFFS data partition untouched:
 
-```powershell
-esptool --chip esp32c6 --port COMx write-flash 0x0 NeonPocketMC-RCC6-Repeater-v1.0.0-rc.2-full-recovery-preserves-meshcore-settings.bin
+```text
+python -m esptool --chip esp32c6 --port COMx write-flash 0x0 EXACT-RECOVERY-FILENAME.bin
 ```
 
-Do not erase the whole flash if you want to retain identity and settings. Verify downloads with `SHA256SUMS.txt`.
+Do not erase the whole flash if you want to retain identity and settings. Never mix profiles during recovery. Verify every download with the release's `SHA256SUMS.txt`.
 
 ## Source and scope
 
@@ -242,4 +276,4 @@ Do not erase the whole flash if you want to retain identity and settings. Verify
 - Release targets: the established `heltec_rcc6_repeater_observer_mqtt` plus all four explicit Room Server profiles listed above.
 - License: MIT; dependency notices and licenses remain in the source tree.
 
-All builds remain prerelease firmware. The observer/repeater keeps its existing behavior; the new Room Server profiles share the same guided USB configuration, 3-byte advert-hash default, full-profile LAN dashboard, and optional MQTT observation stack.
+All builds remain prerelease firmware. The observer/repeater keeps its existing behavior. Full Room Server profiles use the guided network wizard, LAN dashboard, and optional MQTT observation; minimal profiles use USB CLI and deliberately omit that entire network stack.
