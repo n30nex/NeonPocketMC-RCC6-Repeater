@@ -54,7 +54,10 @@ def main() -> None:
     if "WITH_MQTT_BRIDGE" in common or "WITH_MQTT_BRIDGE" in minimal_headless:
         raise AssertionError("minimal room base must not enable Wi-Fi/MQTT")
     require(full_tft, "full-tft-experimental", "NEONPOCKET_ROOM_SERVER_EXPERIMENTAL=1",
-            "NEONPOCKET_MEMORY_GATE_BYTES=32768")
+            "NV3001B_USE_INDEXED_FRAMEBUFFER=1", "NEONPOCKET_MEMORY_GATE_BYTES=32768")
+    if ini.count("NV3001B_USE_INDEXED_FRAMEBUFFER=1") != 1 or \
+            "NV3001B_USE_INDEXED_FRAMEBUFFER" in tft:
+        raise AssertionError("indexed framebuffer must be scoped to full TFT only")
     require(section(ini, "env:heltec_rcc6_repeater_observer_mqtt"),
             "NEONPOCKET_RCC6_REPEATER=1", "+<../examples/simple_repeater>")
 
@@ -78,8 +81,12 @@ def main() -> None:
 
     display_h = read("src/helpers/ui/NV3001BDisplay.h")
     display_cpp = read("src/helpers/ui/NV3001BDisplay.cpp")
-    require(display_h, "NV3001B_USE_FRAMEBUFFER", "framebuffer_band_hashes")
-    require(display_cpp, "flushFramebuffer", "hashFramebufferPixels")
+    require(display_h, "NV3001B_USE_FRAMEBUFFER", "NV3001B_USE_INDEXED_FRAMEBUFFER",
+            "framebuffer_palette_capacity = 256", "framebuffer_band_rows = 8",
+            "framebuffer_band_hashes")
+    require(display_cpp, "flushFramebuffer", "hashFramebufferPixels",
+            "framebufferPaletteIndex", "indexed framebuffer palette exhausted",
+            "sizeof(*framebuffer)")
 
     web = read("webui/index.html")
     require(web, "NeonPocketMC Room Server", "Room clients", "Room posts",
