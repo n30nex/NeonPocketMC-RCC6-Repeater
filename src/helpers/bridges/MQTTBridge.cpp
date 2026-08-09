@@ -1201,7 +1201,9 @@ void MQTTBridge::initializeWiFiInTask() {
 
   // Enable automatic reconnection - ESP32 will handle reconnection automatically
   WiFi.setAutoReconnect(true);
+#if ESP_ARDUINO_VERSION_MAJOR < 3
   WiFi.setAutoConnect(true);
+#endif
 
   // Set up WiFi event handlers for better diagnostics and immediate disconnection
   // detection. Register ONCE — the bridge is reused across restarts (e.g. stopped
