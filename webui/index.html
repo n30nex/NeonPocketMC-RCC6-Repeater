@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>MeshCore Config</title>
+<title>NeonPocketMC Room Server</title>
+<meta name="theme-color" content="#10151c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310151c'/%3E%3Cpath d='M5 9v13l4 4h14l4-4V9' fill='none' stroke='%2300e5ff' stroke-width='2'/%3E%3Cpath d='M10 21l6-8 6 8z' fill='none' stroke='%232b7de9' stroke-width='2'/%3E%3Cg fill='%2387e000'%3E%3Ccircle cx='16' cy='13' r='2'/%3E%3Ccircle cx='10' cy='21' r='2'/%3E%3Ccircle cx='22' cy='21' r='2'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#f4f6f8; --card:#fff; --ink:#1a2330; --mut:#66738a; --line:#e2e7ee;
@@ -219,12 +221,16 @@ body.tab-cli{padding-bottom:0}
 </head>
 <body>
 <header>
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round">
-    <circle cx="12" cy="12" r="2.2" fill="var(--acc)" stroke="none"/>
-    <path d="M7.7 7.7a6 6 0 0 0 0 8.6M16.3 7.7a6 6 0 0 1 0 8.6M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>
+  <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-label="NeonPocketMC">
+    <path d="M5 9v13l4 4h14l4-4V9" stroke="#00e5ff" stroke-width="2"/>
+    <path d="M10 21l6-8 6 8z" stroke="#2b7de9" stroke-width="2"/>
+    <circle cx="16" cy="13" r="2" fill="#87e000"/>
+    <circle cx="10" cy="21" r="2" fill="#87e000"/>
+    <circle cx="22" cy="21" r="2" fill="#87e000"/>
+    <path d="M8 5h3M15 2v4M22 4h3" stroke="#00e5ff" stroke-width="2"/>
   </svg>
   <div class="hmeta">
-    <h1 id="h-name">MeshCore</h1>
+    <h1 id="h-name">NeonPocketMC</h1>
     <div id="h-sub">connecting&hellip;</div>
   </div>
   <span class="badge hide" id="h-badge"></span>
@@ -528,7 +534,7 @@ body.tab-cli{padding-bottom:0}
       <h2>MQTT servers</h2>
       <div id="stat-slots" style="font-size:13.5px;color:var(--mut)">No data yet.</div>
     </div>
-    <div class="card">
+    <div class="card" id="neighbor-card">
       <h2>Recently heard neighbours <span id="neighbor-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
       <div id="stat-neighbors" style="color:var(--mut);font-size:13px">Collecting…</div>
     </div>
@@ -677,6 +683,9 @@ function boot(){
     st.mode=s.mode;st.authed=s.auth;st.needsSetup=!!s.needs_setup;st.nslots=s.active_slots||s.runtime_slots||6;
     if(s.max_cmds>0)CLI_MAX=s.max_cmds;
     st.fw=s.fw||"";st.build=s.build_date||"";st.role=s.role||"";st.board=s.board||"";
+    document.title=st.role==="room_server"?"MeshCore Room Server":"MeshCore Config";
+    var roomMode=st.role==="room_server";
+    $("#neighbor-card").classList.toggle("hide",roomMode);
     $("#h-name").textContent=s.name||"MeshCore";
     $("#h-sub").textContent=s.role+" · "+shortVer()+" · "+s.board;
     var b=$("#h-badge");b.classList.remove("hide");
@@ -1200,13 +1209,23 @@ function pollStats(){
     var radioHealth=s.err_flags?"bad":(s.recv&&s.last_rx_age>900)?"warn":"ok";
     var mqttHealth=!sl.length?"warn":mqttOk===sl.length?"ok":mqttOk?"warn":"bad";
     var memHealth=s.heap_free<50000||s.heap_max_alloc<20000?"bad":s.heap_free<80000?"warn":"ok";
+    var roomMode=s.room_posts!=null;
     $("#health").innerHTML=health("Radio "+radioState(s.radio_state),radioHealth)+
       health("WiFi "+s.wifi_rssi+" dBm",wifiState)+health("MQTT "+mqttOk+"/"+sl.length,mqttHealth)+
-      health("Memory "+kb+" KB",memHealth)+(s.err_flags?health("Fault 0x"+Number(s.err_flags).toString(16),"bad"):"");
+      health("Memory "+kb+" KB",memHealth)+
+      (roomMode?health("Room "+s.room_active_clients+"/"+s.room_clients,
+        s.room_active_clients?"ok":"warn"):"")+
+      (s.err_flags?health("Fault 0x"+Number(s.err_flags).toString(16),"bad"):"");
+    var roleTiles=roomMode?
+      tile("Room clients",s.room_active_clients+" / "+s.room_clients,"active / registered")+
+      tile("Room posts",s.room_posts,"accepted by server")+
+      tile("Post deliveries",s.room_pushes,"pushes queued")+
+      tile("Build profile",s.profile||"full-headless",s.experimental?"experimental":"supported"):
+      tile("Neighbours",s.neighbors,"recently heard");
     $("#tiles").innerHTML=
       tile("Uptime",fmtUp(s.uptime_s))+
       tile("Battery",(s.batt_mv/1000).toFixed(2),"V")+
-      tile("Neighbours",s.neighbors,"recently heard")+
+      roleTiles+
       tile("Last RF packet",s.recv?fmtAge(s.last_rx_age):"never")+
       tile("Packet rate",rxrate.toFixed(1)+" RX","/min · "+txrate.toFixed(1)+" TX")+
       tile("Packets RX",s.recv,"errors "+s.rx_err)+
@@ -1227,7 +1246,7 @@ function pollStats(){
       tile("WiFi",s.wifi_rssi,"dBm · channel "+s.wifi_channel)+
       tile("IP",s.ip||"—")+
       tile("CPU",s.cpu_mhz,"MHz")+
-      tile("Admin clients",s.clients)+
+      tile(roomMode?"Registered clients":"Admin clients",s.clients)+
       tile("Error flags","0x"+Number(s.err_flags).toString(16));
     push(st.hist.rx,rxrate);push(st.hist.tx,txrate);push(st.hist.rssi,s.rssi);push(st.hist.snr,s.snr);
     push(st.hist.noise,s.noise);push(st.hist.txair,txload);push(st.hist.rxair,rxload);
@@ -1258,7 +1277,7 @@ function pollStats(){
       return'<div class="kv"><i>Slot '+x.n+" · "+esc(x.name)+'</i><b><span class="pill '+esc(x.state)+'">'+esc(x.state)+'</span> '+x.ok+' ok / '+x.err+' err</b></div>'+f;
     }).join(""):"No servers configured.";
     st.lastStats=s;
-    if(++st.neighborPoll%4===1)pollNeighbors();
+    if(st.role!=="room_server"&&++st.neighborPoll%4===1)pollNeighbors();
   }).catch(function(){}).then(function(){
     // Runs whether the poll resolved or rejected: clear the guard, then schedule
     // the next tick only if the Stats tab is still active.

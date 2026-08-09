@@ -1,6 +1,9 @@
 #include "MyMesh.h"
 #include <algorithm>
 #include <helpers/RxReservePacketManager.h>
+#if defined(ESP32) && defined(WITH_MQTT_BRIDGE)
+#include <WiFi.h>
+#endif
 #if defined(WITH_MQTT_NEIGHBORS)
 #include <helpers/MQTTConnectionPolicy.h>  // kSyncedClockEpoch
 #endif
@@ -1088,6 +1091,44 @@ bool MyMesh::formatFileSystem() {
 #endif
 }
 
+void MyMesh::getRoomSnapshot(RoomSnapshot& snapshot) {
+  memset(&snapshot, 0, sizeof(snapshot));
+  for (int i = 0; i < acl.getNumClients(); i++) {
+    ClientInfo* client = acl.getClientByIdx(i);
+    if (client->permissions != 0) snapshot.clients++;
+    if (client->last_activity != 0) snapshot.active_clients++;
+  }
+  snapshot.batt_mv = board.getBattMilliVolts();
+  snapshot.posts = _num_posted;
+  snapshot.pushes = _num_post_pushes;
+  snapshot.rf_rx = radio_driver.getPacketsRecv();
+  snapshot.rf_tx = radio_driver.getPacketsSent();
+  snapshot.rf_errors = radio_driver.getPacketsRecvErrors();
+  const uint32_t now_ms = _ms->getMillis();
+  const uint32_t last_rx_ms = _radio->getLastRecvMillis();
+  snapshot.last_rx_age_s = last_rx_ms ? (now_ms - last_rx_ms) / 1000 : 0;
+  snapshot.error_flags = _err_flags;
+  snapshot.tx_queue = _mgr->getOutboundCount(0xFFFFFFFF);
+  snapshot.noise = _radio->getNoiseFloor();
+  snapshot.rssi = radio_driver.getLastRSSI();
+  snapshot.snr = radio_driver.getLastSNR();
+  snapshot.radio_state = _radio->getRadioState();
+#ifdef ESP32
+  snapshot.heap_free = ESP.getFreeHeap();
+  snapshot.heap_min = ESP.getMinFreeHeap();
+  snapshot.heap_max_alloc = ESP.getMaxAllocHeap();
+#endif
+#ifdef WITH_MQTT_BRIDGE
+  snapshot.wifi_rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+  for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
+    MQTTBridge::SlotStatusSnapshot slot;
+    if (!MQTTBridge::getSlotStatusSnapshot(i, &slot)) continue;
+    snapshot.mqtt_slots_total++;
+    if (strcmp(slot.state, "ok") == 0) snapshot.mqtt_slots_ok++;
+  }
+#endif
+}
+
 void MyMesh::sendSelfAdvertisement(int delay_millis, bool flood) {
   mesh::Packet *pkt = createSelfAdvert();
   if (pkt) {
@@ -1318,26 +1359,47 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
   } else if (_webconfig && _webconfig->mode() == WebConfigServer::MODE_SETUP) {
     strncpy(ip, WiFi.softAPIP().toString().c_str(), sizeof(ip) - 1);
   }
+  RoomSnapshot room;
+  getRoomSnapshot(room);
+  SimpleMeshTables* mesh_tables = (SimpleMeshTables*)getTables();
+#ifdef NEONPOCKET_ROOM_SERVER_EXPERIMENTAL
+  const unsigned experimental = 1;
+#else
+  const unsigned experimental = 0;
+#endif
   int pos = snprintf(buf, buf_size,
       "{\"uptime_s\":%lu,\"batt_mv\":%u,"
       "\"heap_free\":%lu,\"heap_min\":%lu,\"heap_max_alloc\":%lu,"
-      "\"noise\":%d,\"rssi\":%d,\"snr\":%.1f,"
+      "\"noise\":%d,\"rssi\":%d,\"snr\":%.1f,\"radio_state\":%u,\"last_rx_age\":%lu,"
       "\"airtime_s\":%lu,\"rx_airtime_s\":%lu,"
       "\"recv\":%lu,\"sent\":%lu,\"rx_err\":%lu,"
       "\"sent_flood\":%lu,\"sent_direct\":%lu,\"recv_flood\":%lu,\"recv_direct\":%lu,"
-      "\"tx_queue\":%d,\"wifi_rssi\":%d,\"ip\":\"%s\",\"mqtt_queue\":%d,\"slots\":[",
+      "\"direct_dups\":%lu,\"flood_dups\":%lu,\"err_flags\":%u,"
+      "\"neighbors\":0,\"clients\":%u,\"packet_pool_free\":%d,"
+      "\"tx_queue\":%d,\"tx_budget_ms\":%lu,"
+      "\"wifi_rssi\":%d,\"wifi_channel\":%d,\"ip\":\"%s\","
+      "\"cpu_mhz\":%u,\"mqtt_queue\":%d,"
+      "\"room_clients\":%u,\"room_active_clients\":%u,"
+      "\"room_posts\":%u,\"room_pushes\":%u,"
+      "\"profile\":\"%s\",\"experimental\":%u,\"slots\":[",
       (unsigned long)(uptime_millis / 1000), (unsigned)board.getBattMilliVolts(),
-      (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMinFreeHeap(),
-      (unsigned long)ESP.getMaxAllocHeap(),
-      (int)_radio->getNoiseFloor(), (int)radio_driver.getLastRSSI(),
-      radio_driver.getLastSNR(),
+      (unsigned long)room.heap_free, (unsigned long)room.heap_min,
+      (unsigned long)room.heap_max_alloc,
+      (int)room.noise, (int)room.rssi, room.snr, (unsigned)room.radio_state,
+      (unsigned long)room.last_rx_age_s,
       (unsigned long)(getTotalAirTime() / 1000), (unsigned long)(getReceiveAirTime() / 1000),
-      (unsigned long)radio_driver.getPacketsRecv(), (unsigned long)radio_driver.getPacketsSent(),
-      (unsigned long)radio_driver.getPacketsRecvErrors(),
+      (unsigned long)room.rf_rx, (unsigned long)room.rf_tx, (unsigned long)room.rf_errors,
       (unsigned long)getNumSentFlood(), (unsigned long)getNumSentDirect(),
       (unsigned long)getNumRecvFlood(), (unsigned long)getNumRecvDirect(),
-      (int)_mgr->getOutboundCount(0xFFFFFFFF), wifi_rssi, ip,
-      bridge ? bridge->getQueueSize() : 0);
+      (unsigned long)mesh_tables->getNumDirectDups(),
+      (unsigned long)mesh_tables->getNumFloodDups(), (unsigned)room.error_flags,
+      (unsigned)room.clients, (int)_mgr->getFreeCount(), (int)room.tx_queue,
+      (unsigned long)getRemainingTxBudget(), wifi_rssi,
+      WiFi.status() == WL_CONNECTED ? WiFi.channel() : 0, ip,
+      (unsigned)ESP.getCpuFreqMHz(), bridge ? bridge->getQueueSize() : 0,
+      (unsigned)room.clients, (unsigned)room.active_clients,
+      (unsigned)room.posts, (unsigned)room.pushes,
+      NEONPOCKET_ROOM_SERVER_PROFILE, experimental);
   if (pos < 0 || pos >= (int)buf_size - 3) return;  // truncated; snprintf terminated it
   bool first = true;
   for (int i = 0; i < RUNTIME_MQTT_SLOTS; i++) {
@@ -1478,6 +1540,10 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
 #elif defined(WITH_MQTT_BRIDGE)
   } else if (memcmp(command, "discover.scopes", 15) == 0) {
     strcpy(reply, "Err - neighbors not enabled in this build");
+#endif
+#ifdef NEONPOCKET_RCC6_ROOM_SERVER
+  } else if (strcmp(command, "get room.profile") == 0) {
+    snprintf(reply, MAX_POST_TEXT_LEN, "> %s", NEONPOCKET_ROOM_SERVER_PROFILE);
 #endif
   } else if (strncmp(command, "room.post", 9) == 0) {
     char* msg = command + 9;

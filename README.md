@@ -1,11 +1,46 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/n30nex/NeonPocketMC/main/branding/neonpocketmc-mark.png" alt="NeonPocketMC pocket mesh logo" width="140">
+</p>
+
 # NeonPocketMC-RCC6-Repeater
 
-Headless MeshCore repeater, Wi-Fi MQTT observer, and browser dashboard firmware for the **Heltec RadioCore RCC6-L62 / SX1262**.
+MeshCore repeater and room-server firmware for the **Heltec RadioCore RCC6-L62 / SX1262**, with optional native TFT, authenticated Wi-Fi dashboard, and MQTT observation.
 
 > [!WARNING]
-> Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. The attached RCC6 TFT is deliberately powered off to reduce RAM use, power draw, and failure surface.
+> Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. Headless profiles deliberately power the TFT off. The full TFT room-server profile is explicitly experimental and must pass its delayed 32 KB heap-headroom gate after Wi-Fi, Web, and MQTT services start.
 
 This project is based on MeshCore 1.17.0 and the production MQTT observer work from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/b744b42aabb454b277fe133214c7d93d23da484b). It adds the hardware mapping already proven by the NeonPocket RCC6 companion project.
+
+## Choose the firmware profile
+
+The established repeater build remains unchanged. Room Server is available as four explicit release environments assembled from shared common, TFT, and full-network bases:
+
+| PlatformIO environment | Room service | 220x128 TFT | Wi-Fi dashboard | MQTT | Status |
+|---|---:|---:|---:|---:|---|
+| `heltec_rcc6_repeater_observer_mqtt` | No | Off | Yes | Yes | Existing repeater/observer |
+| `heltec_rcc6_room_server_minimal_headless` | Yes | Off | No | No | Smallest room server |
+| `heltec_rcc6_room_server_minimal_tft` | Yes | Yes | No | No | Room snapshot on device |
+| `heltec_rcc6_room_server_full_headless` | Yes | Off | Yes | Yes | Recommended connected server |
+| `heltec_rcc6_room_server_full_tft` | Yes | Yes | Yes | Yes | **Experimental**; delayed 32 KB heap gate |
+
+“Minimal” means LoRa Room Server plus USB CLI only: it does not compile the Web/AP/MQTT feature stack. “Full” adds the proven AP/STA onboarding flow, authenticated LAN dashboard, and MQTT observer/ingester using the existing broker presets and credential machinery. MQTT remains one-way observation: broker traffic is never injected into the mesh.
+
+The TFT variants use the RCC6 native 220x128 framebuffer driver with band-delta flushing and the animated NeonPocketMC startup mark. Their room snapshot shows active/registered clients, accepted posts, RF signal/age/errors, queue pressure, raw battery voltage, and heap. A provisional warning appears at or below 3.45 V and clears at or above 3.60 V; no automatic low-voltage shutdown is enabled before physical ADC calibration. Full TFT also shows Wi-Fi, MQTT slot health, free/minimum/max-allocation heap, and an `EXP` marker.
+
+To list the same choices from the configurator without connecting hardware:
+
+```text
+python scripts/configure_rcc6.py --list-profiles
+```
+
+The USB configurator accepts only the two full Room Server profiles (and the existing repeater). It refuses minimal images because they intentionally have no Wi-Fi or MQTT settings to configure.
+
+### Room Server safety and recovery
+
+- Storage mounts fail closed. Existing nonblank SPIFFS data is never auto-formatted; only a completely erased partition is initialized.
+- TFT builds stop on a visible error screen and serial fatal message if display, radio, storage, or the post-service heap gate fails. Headless builds emit the same radio/storage fatal state over USB serial.
+- The full dashboard reuses the authenticated WebConfig API. Room activity is read-only: there are no HTTP endpoints for posting, deleting, changing clients, or injecting MQTT traffic into RF.
+- A deliberate factory reset is USB-serial only: enter `factory-reset CONFIRM`. It erases MeshCore/MQTT files, clears stored Wi-Fi credentials from ESP32 NVS on full builds, waits for the reply to land, and reboots. This also erases the room identity and cannot be undone.
 
 ## What it does
 
@@ -204,7 +239,7 @@ Do not erase the whole flash if you want to retain identity and settings. Verify
 - MeshCore base: 1.17.0.
 - MQTT observer base: `agessaman/MeshCore` `observer-firmware` at `b744b42aabb454b277fe133214c7d93d23da484b`.
 - RCC6 hardware mapping provenance: the separately tested `NeonPocketMC-RCC6` companion project.
-- Release target: `heltec_rcc6_repeater_observer_mqtt` only.
+- Release targets: the established `heltec_rcc6_repeater_observer_mqtt` plus all four explicit Room Server profiles listed above.
 - License: MIT; dependency notices and licenses remain in the source tree.
 
-RC2 remains a prerelease. It adds the guided USB configurator, 3-byte advert-hash default, and automatic LAN dashboard to the initial MQTT observer target.
+All builds remain prerelease firmware. The observer/repeater keeps its existing behavior; the new Room Server profiles share the same guided USB configuration, 3-byte advert-hash default, full-profile LAN dashboard, and optional MQTT observation stack.

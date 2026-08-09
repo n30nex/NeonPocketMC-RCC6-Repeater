@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guided USB configurator for NeonPocketMC RCC6 MQTT repeaters."""
+"""Guided USB configurator for NeonPocketMC RCC6 full network profiles."""
 
 from __future__ import annotations
 
@@ -16,6 +16,13 @@ import urllib.request
 USB_VID = 0x303A
 USB_PID = 0x1001
 BAUD = 115200
+
+BUILD_PROFILES = (
+    ("heltec_rcc6_room_server_minimal_headless", "Room core only; no TFT, Wi-Fi, Web UI, or MQTT"),
+    ("heltec_rcc6_room_server_minimal_tft", "Room core plus native 220x128 TFT; no Wi-Fi or MQTT"),
+    ("heltec_rcc6_room_server_full_headless", "Room core plus authenticated AP/STA Web UI and MQTT"),
+    ("heltec_rcc6_room_server_full_tft", "Full profile plus TFT and 32 KB heap gate (experimental)"),
+)
 
 RADIO_PRESETS = [
     ("USA/Canada (recommended)", "910.525", "62.5", 7, 5),
@@ -173,16 +180,30 @@ def choose_port(requested: str | None) -> str:
     return ports[ask_number("Choose the RCC6 USB port", 1, len(ports)) - 1].device
 
 
-def verify_device(cli: DeviceCLI) -> tuple[str, str]:
+def verify_device(cli: DeviceCLI) -> tuple[str, str, str, str]:
     version = cli.command("ver", quiet=True)
     board = cli.command("board", quiet=True)
     role = cli.value("role")
-    if "rcc6-mqtt" not in version.lower() or "rcc6" not in board.lower() or "repeater" not in role.lower():
+    version_l = version.lower()
+    role_l = role.lower()
+    supported = (
+        ("rcc6-mqtt" in version_l and "repeater" in role_l) or
+        ("rcc6-room" in version_l and "room_server" in role_l)
+    )
+    if not supported or "rcc6" not in board.lower():
         raise SetupError(
             f"Refusing to configure this device. It reported '{version}', '{board}', role '{role}'."
         )
-    print(f"Verified: {board} / {version}")
-    return version, board
+    profile = "repeater-observer"
+    if "room_server" in role_l:
+        profile = cli.value("room.profile")
+        if profile.startswith("minimal-"):
+            raise SetupError(
+                f"This device runs '{profile}', which intentionally omits Wi-Fi/MQTT. "
+                "Flash a full-headless or full-tft build before using this wizard."
+            )
+    print(f"Verified: {board} / {version} / {role} / {profile}")
+    return version, board, role, profile
 
 
 def ask_text(label: str, *, default: str = "", maximum: int | None = None,
@@ -360,7 +381,7 @@ def build_commands(config: dict) -> list[tuple[str, bool]]:
     return commands
 
 
-def gather_config(cli: DeviceCLI, current: dict[str, str]) -> dict:
+def gather_config(cli: DeviceCLI, current: dict[str, str], *, room_server: bool = False) -> dict:
     print("\nStep 1 of 4 - Node and Wi-Fi")
     name = ask_text("Node name", default=current["name"], maximum=31, validator=valid_name)
     ssid = ask_text("2.4 GHz Wi-Fi network name", default=current["wifi.ssid"], maximum=31)
@@ -380,7 +401,9 @@ def gather_config(cli: DeviceCLI, current: dict[str, str]) -> dict:
     except ValueError:
         current_tx = 22
     tx = ask_number("TX power in dBm (check your local legal limit)", -9, 22, current_tx)
-    repeat = ask_yes_no("Forward mesh traffic (repeater mode)", current["repeat"].lower() != "off")
+    repeat_label = ("Forward mesh traffic in addition to hosting the room" if room_server
+                    else "Forward mesh traffic (repeater mode)")
+    repeat = ask_yes_no(repeat_label, current["repeat"].lower() != "off")
 
     print("\nStep 3 of 4 - MQTT")
     iata = ask_text("Nearest 3-character airport/IATA code", default=current["mqtt.iata"].upper(),
@@ -419,7 +442,7 @@ def gather_config(cli: DeviceCLI, current: dict[str, str]) -> dict:
         "radio_name": radio_name, "freq": freq, "bw": bw, "sf": sf, "cr": cr,
         "tx": tx, "repeat": repeat, "iata": iata, "mqtt1": mqtt1, "mqtt2": mqtt2,
         "mqtt1_credentials": credentials1, "mqtt2_credentials": credentials2,
-        "admin_password": admin_password,
+        "admin_password": admin_password, "room_server": room_server,
     }
 
 
@@ -430,7 +453,10 @@ def show_summary(port: str, config: dict) -> None:
     print(f"  Radio preset:   {config['radio_name']}")
     print(f"  Radio values:   {config['freq']} MHz, BW {config['bw']}, SF {config['sf']}, CR {config['cr']}")
     print(f"  TX power:       {config['tx']} dBm")
-    print(f"  Repeater:       {'on' if config['repeat'] else 'off (observer only)'}")
+    mode = "room + repeater" if config.get("room_server") and config["repeat"] else (
+        "room server only" if config.get("room_server") else
+        ("on" if config["repeat"] else "off (observer only)"))
+    print(f"  Mesh role:      {mode}")
     print("  Advert hashes:  3 bytes")
     print(f"  MQTT region:    {config['iata']}")
     print(f"  MQTT servers:   {config['mqtt1']} / {config['mqtt2']}")
@@ -530,6 +556,8 @@ def self_test() -> None:
     assert valid_iata("YYZ") and not valid_iata("Toronto")
     assert len(RADIO_PRESETS) == 20
     assert radio_key(RADIO_PRESETS[0][1:]) == (910.525, 62.5, 7, 5)
+    assert len(BUILD_PROFILES) == 4
+    assert BUILD_PROFILES[-1][0] == "heltec_rcc6_room_server_full_tft"
     sample = {
         "name": "Test", "freq": "910.525", "bw": "62.5", "sf": 7, "cr": 5,
         "tx": 22, "repeat": True, "iata": "YYZ", "mqtt1": "meshcore-ca-1",
@@ -543,26 +571,38 @@ def self_test() -> None:
     print("Configurator self-test passed")
 
 
+def print_profiles() -> None:
+    print("NeonPocketMC RCC6 room-server firmware profiles:\n")
+    for name, description in BUILD_PROFILES:
+        print(f"  {name}\n    {description}")
+    print("\nThis USB wizard configures the two full profiles. Minimal profiles intentionally have no Wi-Fi/MQTT setup.")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Configure a NeonPocketMC RCC6 MQTT repeater over USB")
+    parser = argparse.ArgumentParser(description="Configure a NeonPocketMC RCC6 full network profile over USB")
     parser.add_argument("--port", help="serial port, for example COM21 or /dev/ttyACM0")
+    parser.add_argument("--list-profiles", action="store_true", help="show the four room-server build profiles and exit")
     parser.add_argument("--self-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.self_test:
         self_test()
         return 0
+    if args.list_profiles:
+        print_profiles()
+        return 0
 
-    print("\nNeonPocketMC RCC6 Repeater Setup")
-    print("=================================")
+    print("\nNeonPocketMC RCC6 Network Setup")
+    print("================================")
     print("Keep USB and a tuned LoRa antenna connected until this wizard says setup is complete.")
+    print("This wizard is for full headless/full TFT profiles; minimal profiles omit Wi-Fi and MQTT.")
 
     cli = None
     try:
         port = choose_port(args.port)
         cli = DeviceCLI(port)
-        verify_device(cli)
+        _, _, role, _ = verify_device(cli)
         current = read_current(cli)
-        config = gather_config(cli, current)
+        config = gather_config(cli, current, room_server=role.lower() == "room_server")
         show_summary(port, config)
         if not ask_yes_no("Apply these settings and reboot", False):
             print("No changes were made.")
@@ -586,7 +626,7 @@ def main() -> int:
         print(f"  MQTT:           {mqtt_status}")
         print(f"  Web dashboard:  http://{ip}/")
         print("  Dashboard login: your new device admin password")
-        print("\nYou may now disconnect USB and deploy the repeater.")
+        print("\nYou may now disconnect USB and deploy the node.")
         return 0
     except (KeyboardInterrupt, EOFError):
         print("\nSetup cancelled. Keep USB connected if configuration was in progress.")
