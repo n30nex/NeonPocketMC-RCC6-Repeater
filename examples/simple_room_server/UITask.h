@@ -12,7 +12,7 @@ class UITask {
   int _prevBtnState;
   bool _battery_low;
   NodePrefs* _node_prefs;
-  char _version_info[40];
+  char _version_info[12], _build_info[16];
 
   void renderCurrScreen();
   void renderCard(int x, int width, const char* label, const char* value, ColorVal value_color);

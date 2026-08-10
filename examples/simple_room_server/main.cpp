@@ -18,6 +18,7 @@
 #endif
 
 #ifdef DISPLAY_CLASS
+  #include "NeonPocketSplash.h"
   #include "UITask.h"
   static UITask ui_task(display);
 #endif
@@ -125,9 +126,11 @@ void setup() {
   DisplayDriver* active_display = NULL;
   if (display.begin()) {
     active_display = &display;
-    active_display->startFrame();
-    active_display->setCursor(0, 0);
-    active_display->print("Starting room server...");
+    active_display->startFrame(NeonPocketSplash::BLACK);
+    char short_version[12];
+    NeonPocketSplash::shortVersion(short_version, sizeof(short_version), FIRMWARE_VERSION);
+    NeonPocketSplash::drawFrame(*active_display, 0, short_version,
+                                FIRMWARE_BUILD_DATE);
     active_display->endFrame();
   } else {
     Serial.println("FATAL display: required display initialization failed");
