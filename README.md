@@ -63,15 +63,15 @@ All roles use fail-closed MeshCore storage and default their own adverts to **3-
 
 | Image | Setup after flashing |
 |---|---|
-| Repeater/observer `v1.1.0-rc.1` | Supplied Windows/Linux network wizard |
-| Room Server full headless or full TFT | `v1.1.0-rc.1` network wizard; it also changes both room passwords |
+| Ultimate repeater/observer `v1.2.0-rc.1` | Supplied Windows/Linux network wizard |
+| Ultimate Room Server full headless or full TFT | `v1.2.0-rc.1` network wizard; it also changes both room passwords |
 | Room Server minimal headless or minimal TFT | USB serial CLI or the generic MeshCore USB configurator; no network wizard |
 
 Always attach a tuned LoRa antenna before powering or transmitting. Flash the selected application image at `0x10000`, leave USB connected, and do not deploy until the radio settings and passwords have been changed.
 
 ### Guided setup for observer and full profiles
 
-Download `NeonPocketMC-RCC6-Server-v1.1.0-rc.1-configurator.zip` from the same release as the selected firmware.
+Download `NeonPocketMC-RCC6-Ultimate-Server-v1.2.0-rc.1-configurator.zip` from the same release as the selected firmware.
 
 - **Windows:** double-click `Configure-RCC6-Windows.cmd`.
 - **Linux:** open the extracted folder in a terminal and run `sh configure-rcc6-linux.sh`.
@@ -259,20 +259,20 @@ Some community brokers require their own credentials or local enrollment. The se
 
 Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html) and replace `COMx` with the port shown by your computer.
 
-The current RCC6 Ultimate observer files are:
+The current RCC6 Ultimate server release files are:
 
 - `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-app.bin`
 - `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
-- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-configurator.zip`
+- `NeonPocketMC-RCC6-Ultimate-Server-v1.2.0-rc.1-configurator.zip`
 
-Room Server `v1.1.0-rc.1` uses these profile-specific names:
+Room Server `v1.2.0-rc.1` uses these profile-specific names:
 
 | Profile | Application update | Recovery image |
 |---|---|---|
-| Minimal headless | `NeonPocketMC-RCC6-Room-Server-minimal-headless-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-minimal-headless-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Minimal TFT | `NeonPocketMC-RCC6-Room-Server-minimal-tft-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-minimal-tft-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full headless | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-headless-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full TFT | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Room-Server-full-tft-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
 
 Do not substitute a similarly named observer, profile, or development artifact.
 
