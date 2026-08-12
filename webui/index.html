@@ -3,27 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>NeonPocketMC Room Server</title>
-<meta name="theme-color" content="#10151c">
+<title>RCC6 Ultimate</title>
+<meta name="theme-color" content="#050608">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310151c'/%3E%3Cpath d='M5 9v13l4 4h14l4-4V9' fill='none' stroke='%2300e5ff' stroke-width='2'/%3E%3Cpath d='M10 21l6-8 6 8z' fill='none' stroke='%232b7de9' stroke-width='2'/%3E%3Cg fill='%2387e000'%3E%3Ccircle cx='16' cy='13' r='2'/%3E%3Ccircle cx='10' cy='21' r='2'/%3E%3Ccircle cx='22' cy='21' r='2'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root{
-  --bg:#f4f6f8; --card:#fff; --ink:#1a2330; --mut:#66738a; --line:#e2e7ee;
-  --acc:#2b7de9; --acc-ink:#fff; --ok:#1d9d5f; --err:#d64545; --warn:#c8871a;
-  --chip:#eef2f7; --in-bg:#fff; --in-line:#c8d2de; --shadow:0 1px 3px rgba(16,28,45,.08);
+  color-scheme:dark;
+  --bg:#050608; --card:#0c0f13; --ink:#f5f8fb; --mut:#8d98a7; --line:#222934;
+  --acc:#42a5ff; --acc-ink:#03101c; --ok:#44f08a; --err:#ff5468; --warn:#ffb84d;
+  --chip:#141a21; --in-bg:#0a0d12; --in-line:#303946; --shadow:0 18px 60px rgba(0,0,0,.3);
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#10151c; --card:#1a212b; --ink:#e6ebf2; --mut:#8b98ab; --line:#2a3442;
-  --acc:#4a94f0; --chip:#232d3a; --in-bg:#141a22; --in-line:#3a4656; --shadow:0 1px 3px rgba(0,0,0,.4);
-}}
 *{box-sizing:border-box;margin:0}
 html{-webkit-text-size-adjust:100%}
-body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:90px;overflow-x:hidden}
-h1{font-size:17px;font-weight:650}
-h2{font-size:14px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:22px 0 10px}
+body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:
+  radial-gradient(circle at 78% -15%,rgba(66,165,255,.13),transparent 36rem),
+  radial-gradient(circle at 14% 110%,rgba(68,240,138,.08),transparent 42rem),var(--bg);color:var(--ink);padding-bottom:90px;overflow-x:hidden}
+h1{font-size:19px;font-weight:740;letter-spacing:-.025em}
+h2{font-size:12px;font-weight:760;text-transform:uppercase;letter-spacing:.13em;color:var(--mut);margin:22px 0 12px}
 h2:first-child{margin-top:0}
 a{color:var(--acc)}
-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+header{display:flex;align-items:center;gap:12px;padding:14px max(18px,calc((100vw - 1240px)/2));background:rgba(6,8,11,.88);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:10}
 header svg{flex:none}
 .hmeta{min-width:0}
 .hmeta div{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -33,12 +32,13 @@ header svg{flex:none}
   background:var(--in-bg);color:var(--mut);cursor:pointer;line-height:1.3;
   font:700 12px/1.3 ui-monospace,Menlo,Consolas,monospace}
 .hicon:hover{color:var(--acc);border-color:var(--acc)}
-@media (prefers-color-scheme:dark){.badge.setup{background:#3a2f14;color:#e0b45c}}
-main{max-width:640px;margin:0 auto;padding:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
-.tabs{display:flex;gap:4px;background:var(--chip);padding:4px;border-radius:10px;margin-bottom:14px}
-.tabs button{flex:1;border:0;background:none;color:var(--mut);font:inherit;font-size:13.5px;font-weight:600;padding:7px 4px;border-radius:7px;cursor:pointer}
-.tabs button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+main{max-width:1280px;margin:0 auto;padding:22px 20px}
+.card{position:relative;background:linear-gradient(145deg,rgba(18,22,28,.96),rgba(9,12,16,.97));border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:22px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card:after{content:"";position:absolute;pointer-events:none;inset:0;background:linear-gradient(130deg,rgba(255,255,255,.024),transparent 36%)}
+.tabs{position:sticky;top:67px;z-index:9;display:flex;gap:5px;background:rgba(12,15,19,.88);backdrop-filter:blur(16px);padding:5px;border:1px solid rgba(255,255,255,.06);border-radius:14px;margin-bottom:18px}
+.tabs button{flex:1;border:0;background:none;color:var(--mut);font:inherit;font-size:13px;font-weight:680;padding:10px 5px;border-radius:10px;cursor:pointer;transition:.2s}
+.tabs button:hover{color:var(--ink);background:rgba(255,255,255,.035)}
+.tabs button.on{background:linear-gradient(90deg,rgba(68,240,138,.14),rgba(66,165,255,.08));color:var(--ok);box-shadow:inset 0 2px var(--ok)}
 .f{margin-bottom:13px}
 .f label{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px}
 .f .hint{font-size:11.5px;color:var(--mut);margin-top:3px}
@@ -90,24 +90,38 @@ button.btn.sm{font-size:12.5px;padding:6px 10px}
 .pill.fail,.pill.disc{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--err)}
 .pill.wait{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-.tile{background:var(--chip);border-radius:10px;padding:10px 12px}
+.tile{background:linear-gradient(140deg,rgba(66,165,255,.055),rgba(255,255,255,.018));border:1px solid rgba(255,255,255,.055);border-radius:13px;padding:13px 14px}
 .tile i{font-style:normal;display:block;font-size:11px;font-weight:650;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-.tile b{font-size:18px;font-weight:650}
+.tile b{font-size:21px;font-weight:720;letter-spacing:-.035em}
 .tile s{text-decoration:none;font-size:11.5px;color:var(--mut)}
 canvas{width:100%;height:56px;display:block}
 .health{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .health span{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border-radius:99px;padding:5px 10px;font-size:12px;font-weight:650}
 .health i{width:8px;height:8px;border-radius:50%;background:var(--mut)}
 .health .ok i{background:var(--ok)}.health .warn i{background:var(--warn)}.health .bad i{background:var(--err)}
-.chartgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.chart{border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+.chartgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.chart{border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0;background:rgba(255,255,255,.012)}
 .chart h3{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
 .chart .legend{min-height:18px;font-size:11px;color:var(--mut);display:flex;gap:10px;flex-wrap:wrap}
 .chart .legend b{font-weight:650}
-.chart canvas{height:90px}
+.chart canvas{height:112px}
+.ultimate-hero{min-height:190px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:
+  radial-gradient(circle at 82% 30%,rgba(68,240,138,.16),transparent 22rem),
+  linear-gradient(130deg,rgba(25,36,38,.98),rgba(7,10,13,.98))}
+.ultimate-hero:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(68,240,138,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(68,240,138,.028) 1px,transparent 1px);background-size:24px 24px;mask-image:linear-gradient(90deg,transparent,#000)}
+.ultimate-hero>div{position:relative;z-index:1}.ultimate-hero .ey{color:var(--ok);font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.ultimate-hero h3{font-size:clamp(29px,4vw,48px);line-height:1.02;letter-spacing:-.055em;margin:6px 0 10px}.ultimate-hero p{max-width:720px;color:var(--mut);font-size:13px}
+.hero-orbit{position:relative;z-index:1;width:120px;height:120px;border:1px solid rgba(68,240,138,.25);border-radius:50%;box-shadow:0 0 55px rgba(68,240,138,.1),inset 0 0 35px rgba(68,240,138,.06)}
+.hero-orbit:before,.hero-orbit:after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(66,165,255,.2)}.hero-orbit:before{inset:20px}.hero-orbit:after{inset:45px;background:var(--ok);box-shadow:0 0 18px var(--ok)}
+.hero-orbit i{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}.hero-orbit i:first-child{left:22px;top:19px}.hero-orbit i:last-child{right:16px;bottom:29px;background:var(--warn);box-shadow:0 0 12px var(--warn)}
+.load-bars{display:grid;gap:11px}.load-row{display:grid;grid-template-columns:120px minmax(90px,1fr) 76px;gap:12px;align-items:center;font-size:12px}.load-row label{color:var(--mut)}.load-row b{text-align:right;font-size:11px}.load-track{height:8px;border-radius:8px;background:#202731;overflow:hidden}.load-track i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--acc),var(--ok));box-shadow:0 0 12px currentColor;transition:width .35s}.load-track i.warn{background:linear-gradient(90deg,var(--warn),var(--err))}
+.broker-bars{display:grid;gap:8px}.broker-bar{display:grid;grid-template-columns:minmax(90px,1fr) minmax(100px,2fr) auto;gap:10px;align-items:center;font-size:12px}.broker-bar strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.broker-bar .load-track{height:6px}.broker-bar span{color:var(--mut);font-size:10px}
+.map-card{padding:0;min-height:480px;background:#070b10}.map-card canvas{width:100%;height:480px}.map-badge{position:absolute;z-index:2;top:16px;right:16px;padding:10px 12px;display:grid;border:1px solid rgba(66,165,255,.22);border-radius:12px;background:rgba(5,8,12,.84);backdrop-filter:blur(8px)}.map-badge strong{color:var(--ok);font-size:11px}.map-badge span{color:var(--mut);font-size:9px}.map-empty{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:7px;padding:30px;text-align:center;pointer-events:none}.map-empty strong{font-size:18px}.map-empty span{max-width:460px;color:var(--mut);font-size:12px}.map-note{color:var(--mut);font-size:12px;margin:-4px 0 15px}.neighbour b{display:block}.neighbour code{display:block;margin-top:2px}
+@media(max-width:620px){.ultimate-hero{grid-template-columns:1fr 80px;min-height:200px}.hero-orbit{width:76px;height:76px}.hero-orbit:before{inset:13px}.hero-orbit:after{inset:29px}.load-row{grid-template-columns:92px 1fr 62px}.map-card,.map-card canvas{min-height:370px;height:370px}}
 .neighbour{display:grid;grid-template-columns:minmax(70px,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
 .neighbour:last-child{border-bottom:0}.neighbour code{color:var(--acc);font-size:12px}.neighbour span{color:var(--mut);text-align:right}
-@media(max-width:520px){.chartgrid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){.chartgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){main{padding:14px}.tabs{top:61px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.tabs button{min-width:0;padding:8px 3px}.chartgrid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:17px;border-radius:16px}}
 .net{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--ink);font:inherit;
   padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left}
 .net:last-child{border-bottom:0}
@@ -230,7 +244,7 @@ body.tab-cli{padding-bottom:0}
     <path d="M8 5h3M15 2v4M22 4h3" stroke="#00e5ff" stroke-width="2"/>
   </svg>
   <div class="hmeta">
-    <h1 id="h-name">NeonPocketMC</h1>
+    <h1 id="h-name">RCC6 Ultimate</h1>
     <div id="h-sub">connecting&hellip;</div>
   </div>
   <span class="badge hide" id="h-badge"></span>
@@ -357,11 +371,25 @@ body.tab-cli{padding-bottom:0}
 <!-- ============ MAIN APP ============ -->
 <section id="v-app" class="hide">
   <div class="tabs" id="tabs">
-    <button data-t="stats" class="on">Dashboard</button>
+    <button data-t="stats" class="on">Overview</button>
+    <button data-t="map">Mesh map</button>
     <button data-t="radio">Radio</button>
     <button data-t="mqtt">MQTT</button>
-    <button data-t="wifi">WiFi</button>
-    <button data-t="cli">CLI</button>
+    <button data-t="wifi">Network</button>
+    <button data-t="cli">Console</button>
+  </div>
+
+  <div id="t-map" class="hide">
+    <div class="card map-card">
+      <canvas id="neighbor-map" height="480" aria-label="Map of directly heard repeaters that advertise a location"></canvas>
+      <div class="map-badge"><strong id="map-located">0 located</strong><span id="map-unlocated">0 without location</span></div>
+      <div class="map-empty" id="map-empty"><strong>No advertised repeater locations yet</strong><span>The observer plots only directly heard repeaters that share valid coordinates. It never guesses where a node is.</span></div>
+    </div>
+    <p class="map-note">This is a local, offline plot of coordinates carried in MeshCore adverts. The observer stays on its configured radio preset.</p>
+    <div class="card" id="neighbor-card">
+      <h2>Directly heard repeaters <span id="neighbor-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
+      <div id="stat-neighbors" style="color:var(--mut);font-size:13px">Collecting…</div>
+    </div>
   </div>
 
   <div id="t-radio" class="hide">
@@ -513,10 +541,18 @@ body.tab-cli{padding-bottom:0}
   </div>
 
   <div id="t-stats">
+    <div class="card ultimate-hero">
+      <div><span class="ey">RCC6 ULTIMATE OBSERVER</span><h3>Mesh and MQTT, at a glance</h3><p>Live radio health, broker delivery, queues, power and recently heard repeaters—all from this node.</p></div>
+      <div class="hero-orbit" aria-hidden="true"><i></i><i></i></div>
+    </div>
     <div class="card">
       <h2>Live overview <span id="stats-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
       <div class="health" id="health"><span><i></i>Collecting data</span></div>
       <div class="tiles" id="tiles"></div>
+    </div>
+    <div class="card">
+      <h2>Operational load</h2>
+      <div class="load-bars" id="load-bars"><div class="load-row"><label>Collecting data</label><div class="load-track"><i></i></div><b>—</b></div></div>
     </div>
     <div class="card">
       <h2>Rolling activity <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0">last 6 minutes</span></h2>
@@ -532,11 +568,8 @@ body.tab-cli{padding-bottom:0}
     </div>
     <div class="card">
       <h2>MQTT servers</h2>
+      <div class="broker-bars" id="broker-bars"></div>
       <div id="stat-slots" style="font-size:13.5px;color:var(--mut)">No data yet.</div>
-    </div>
-    <div class="card" id="neighbor-card">
-      <h2>Recently heard neighbours <span id="neighbor-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
-      <div id="stat-neighbors" style="color:var(--mut);font-size:13px">Collecting…</div>
     </div>
   </div>
 
@@ -615,7 +648,7 @@ body.tab-cli{padding-bottom:0}
 "use strict";
 var SENTINEL="********";
 var st={mode:"",authed:false,cfg:null,orig:{},dirty:{},presets:[],nslots:6,
-  statsTimer:0,statsOn:false,statsInflight:false,lastStats:null,neighborPoll:0,
+  statsTimer:0,statsOn:false,statsInflight:false,lastStats:null,neighborPoll:0,neighbors:[],
   hist:{rx:[],tx:[],rssi:[],snr:[],noise:[],txair:[],rxair:[],txq:[],mqttq:[],mqttok:[],mqtterr:[],heap:[],heapmin:[],batt:[],wifi:[]},
   scanTarget:"",scanTimer:0};
 
@@ -683,11 +716,12 @@ function boot(){
     st.mode=s.mode;st.authed=s.auth;st.needsSetup=!!s.needs_setup;st.nslots=s.active_slots||s.runtime_slots||6;
     if(s.max_cmds>0)CLI_MAX=s.max_cmds;
     st.fw=s.fw||"";st.build=s.build_date||"";st.role=s.role||"";st.board=s.board||"";
-    document.title=st.role==="room_server"?"MeshCore Room Server":"MeshCore Config";
+    document.title=st.role==="room_server"?"RCC6 Ultimate Room Server":"RCC6 Ultimate Observer";
     var roomMode=st.role==="room_server";
     $("#neighbor-card").classList.toggle("hide",roomMode);
-    $("#h-name").textContent=s.name||"MeshCore";
-    $("#h-sub").textContent=s.role+" · "+shortVer()+" · "+s.board;
+    $('#tabs button[data-t="map"]').classList.toggle("hide",roomMode);
+    $("#h-name").textContent=s.name||"RCC6 Ultimate";
+    $("#h-sub").textContent=(roomMode?"Room server":"MQTT observer / repeater")+" · "+shortVer()+" · "+s.board;
     var b=$("#h-badge");b.classList.remove("hide");
     if(s.mode==="setup"){b.textContent="SETUP";b.classList.add("setup")}else{b.textContent="LAN"}
     // Only in setup mode: in LAN mode the console is a tab, and the header is
@@ -1166,10 +1200,11 @@ function enterConsole(){
 $("#tabs").addEventListener("click",function(ev){
   var b=ev.target.closest("button");if(!b)return;
   $$("#tabs button").forEach(function(x){x.classList.toggle("on",x===b)});
-  ["radio","mqtt","wifi","stats","cli"].forEach(function(t){$("#t-"+t).classList.toggle("hide",t!==b.dataset.t)});
-  if(b.dataset.t==="stats")startStats();else stopStats();
+  ["radio","mqtt","wifi","stats","map","cli"].forEach(function(t){$("#t-"+t).classList.toggle("hide",t!==b.dataset.t)});
+  if(b.dataset.t==="stats"||b.dataset.t==="map")startStats();else stopStats();
   document.body.classList.toggle("tab-cli",b.dataset.t==="cli");
   if(b.dataset.t==="cli")enterCli();
+  if(b.dataset.t==="map"){pollNeighbors();setTimeout(drawNeighborMap,0)}
 });
 
 /* ---------- stats ---------- */
@@ -1181,6 +1216,19 @@ function dRate(now,old,dt,mul){return old==null||dt<=0||now<old?0:(now-old)*mul/
 function radioState(v){return(v&16)?"ready":v===0?"idle":v===1?"receiving":v===3?"TX wait":"state "+v}
 function health(label,state){return'<span class="'+state+'"><i></i>'+label+'</span>'}
 function legend(id,items){$(id).innerHTML=items.map(function(x){return'<span style="color:'+x.c+'">● <b>'+x.n+'</b> '+x.v+'</span>'}).join("")}
+function loadRow(label,pct,value,warn){return'<div class="load-row"><label>'+esc(label)+'</label><div class="load-track"><i'+(warn?' class="warn"':'')+' style="width:'+Math.max(0,Math.min(100,pct)).toFixed(1)+'%"></i></div><b>'+esc(value)+'</b></div>'}
+function renderLoadBars(rxrate,txrate,txload,rxload){
+  $("#load-bars").innerHTML=loadRow("Receive rate",rxrate/60*100,rxrate.toFixed(1)+" / min",false)+
+    loadRow("Transmit rate",txrate/60*100,txrate.toFixed(1)+" / min",false)+
+    loadRow("TX airtime",txload,txload.toFixed(1)+"%",txload>80)+
+    loadRow("RX airtime",rxload,rxload.toFixed(1)+"%",rxload>80);
+}
+function renderBrokerBars(slots){
+  $("#broker-bars").innerHTML=slots.length?slots.map(function(slot){
+    var ok=Number(slot.ok||0),err=Number(slot.err||0),total=ok+err,pct=total?ok/total*100:0;
+    return'<div class="broker-bar"><strong>'+esc(slot.name||("Slot "+slot.n))+'</strong><div class="load-track"><i'+(err?' class="warn"':'')+' style="width:'+pct.toFixed(1)+'%"></i></div><span>'+ok+' ok · '+err+' err</span></div>';
+  }).join(""):'<span style="color:var(--mut);font-size:12px">No broker slots configured.</span>';
+}
 function startStats(){stopStats();st.statsOn=true;pollStats()}
 function stopStats(){st.statsOn=false;if(st.statsTimer){clearTimeout(st.statsTimer);st.statsTimer=0}}
 function pollStats(){
@@ -1216,6 +1264,8 @@ function pollStats(){
       (roomMode?health("Room "+s.room_active_clients+"/"+s.room_clients,
         s.room_active_clients?"ok":"warn"):"")+
       (s.err_flags?health("Fault 0x"+Number(s.err_flags).toString(16),"bad"):"");
+    renderLoadBars(rxrate,txrate,txload,rxload);
+    renderBrokerBars(sl);
     var roleTiles=roomMode?
       tile("Room clients",s.room_active_clients+" / "+s.room_clients,"active / registered")+
       tile("Room posts",s.room_posts,"accepted by server")+
@@ -1308,11 +1358,56 @@ function pollNeighbors(){
   api("/api/neighbors",{timeout:5000}).then(function(r){
     if(r.state==="pending")return;
     var ns=(r.neighbors||[]).sort(function(a,b){return a.age-b.age});
+    st.neighbors=ns;
     var total=st.lastStats?st.lastStats.neighbors:ns.length;$("#neighbor-age").textContent=total+" heard";
+    var located=ns.filter(function(n){return n.located&&Number(n.lat)&&Number(n.lon)}).length;
+    $("#map-located").textContent=located+" located";
+    $("#map-unlocated").textContent=(ns.length-located)+" without location";
     $("#stat-neighbors").innerHTML=ns.length?ns.map(function(n){
-      return'<div class="neighbour"><code>'+esc(n.id)+'</code><span>heard '+fmtAge(n.age)+' ago<br>SNR '+Number(n.snr).toFixed(1)+' dB</span><span>'+(n.advert_age?'advert '+fmtAge(n.advert_age)+' ago':'no advert')+'</span></div>';
+      return'<div class="neighbour"><div><b>'+esc(n.name||"Unnamed repeater")+'</b><code>'+esc(n.id)+'</code></div><span>heard '+fmtAge(n.age)+' ago<br>SNR '+Number(n.snr).toFixed(1)+' dB</span><span>'+(n.advert_age?'advert '+fmtAge(n.advert_age)+' ago':'no advert')+(n.located?'<br>'+(Number(n.lat)/1e6).toFixed(3)+', '+(Number(n.lon)/1e6).toFixed(3):'')+'</span></div>';
     }).join(""):"No neighbours heard yet.";
+    drawNeighborMap();
   }).catch(function(){});
+}
+
+function drawNeighborMap(){
+  var cv=$("#neighbor-map");if(!cv)return;
+  var dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(280,cv.clientWidth||0),h=Math.max(360,cv.clientHeight||0);
+  cv.width=w*dpr;cv.height=h*dpr;var g=cv.getContext("2d");g.scale(dpr,dpr);
+  var grad=g.createLinearGradient(0,0,0,h);grad.addColorStop(0,"#0d1820");grad.addColorStop(1,"#070b10");g.fillStyle=grad;g.fillRect(0,0,w,h);
+  g.strokeStyle="rgba(57,231,255,.09)";g.lineWidth=1;
+  for(var x=0;x<=w;x+=Math.max(34,w/12)){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}
+  for(var y=0;y<=h;y+=Math.max(34,h/8)){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
+  g.fillStyle="rgba(141,152,167,.55)";g.font="10px ui-monospace,monospace";g.fillText("N",17,23);g.beginPath();g.moveTo(20,30);g.lineTo(20,52);g.strokeStyle="#44f08a";g.stroke();
+  var located=(st.neighbors||[]).filter(function(n){return n.located&&Number(n.lat)&&Number(n.lon)}).map(function(n){return{n:n,lat:Number(n.lat)/1e6,lon:Number(n.lon)/1e6}});
+  var rc=st.cfg&&st.cfg.radio||{},slat=Number(rc.lat),slon=Number(rc.lon),self=(isFinite(slat)&&isFinite(slon)&&(slat||slon))?{lat:slat,lon:slon}:null;
+  $("#map-empty").classList.toggle("hide",!!(located.length||self));
+  var points=located.map(function(p){return{lat:p.lat,lon:p.lon}});if(self)points.push(self);if(!points.length)return;
+  var minLat=Math.min.apply(null,points.map(function(p){return p.lat})),maxLat=Math.max.apply(null,points.map(function(p){return p.lat}));
+  var minLon=Math.min.apply(null,points.map(function(p){return p.lon})),maxLon=Math.max.apply(null,points.map(function(p){return p.lon}));
+  var latPad=Math.max(.002,(maxLat-minLat)*.16),lonPad=Math.max(.002,(maxLon-minLon)*.16);minLat-=latPad;maxLat+=latPad;minLon-=lonPad;maxLon+=lonPad;
+  function project(p){return{x:36+(p.lon-minLon)/(maxLon-minLon)*(w-72),y:30+(maxLat-p.lat)/(maxLat-minLat)*(h-60)}}
+  var sp=self?project(self):null;if(sp){g.setLineDash([4,7]);g.strokeStyle="rgba(57,231,255,.18)";located.forEach(function(p){var q=project(p);g.beginPath();g.moveTo(sp.x,sp.y);g.lineTo(q.x,q.y);g.stroke()});g.setLineDash([])}
+  var labels=[];
+  located.slice(0,40).forEach(function(p,i){
+    var q=project(p),c="#ff8a3d";
+    g.beginPath();g.arc(q.x,q.y,10,0,Math.PI*2);g.fillStyle=c+"22";g.fill();
+    g.beginPath();g.arc(q.x,q.y,4,0,Math.PI*2);g.fillStyle=c;g.shadowColor=c;g.shadowBlur=12;g.fill();g.shadowBlur=0;
+    if(i<18){
+      var label=String(p.n.name||p.n.id).slice(0,20),offsets=[0,14,-14,28,-28,42,-42];
+      g.font="11px system-ui,sans-serif";
+      var tw=g.measureText(label).width,left=q.x>w-180,qx=left?q.x-9-tw:q.x+9,ly=q.y-7;
+      for(var oi=0;oi<offsets.length;oi++){
+        var cy=Math.max(18,Math.min(h-18,ly+offsets[oi])),box={x:qx-2,y:cy-11,w:tw+4,h:14};
+        var clear=labels.every(function(b){return box.x+box.w<b.x||b.x+b.w<box.x||box.y+box.h<b.y||b.y+b.h<box.y});
+        if(clear){ly=cy;labels.push(box);break}
+      }
+      g.strokeStyle="rgba(255,138,61,.35)";g.beginPath();g.moveTo(q.x+(left?-5:5),q.y);g.lineTo(left?qx+tw+2:qx-2,ly-3);g.stroke();
+      g.fillStyle="#f5f8fb";g.fillText(label,qx,ly);
+    }
+  });
+  if(sp){g.fillStyle="#44f08a";g.fillRect(sp.x-5,sp.y-5,10,10);g.strokeStyle="#dfffea";g.strokeRect(sp.x-7,sp.y-7,14,14);g.fillStyle="#f5f8fb";g.font="700 11px system-ui,sans-serif";g.fillText("THIS OBSERVER",sp.x+11,sp.y+4)}
+  g.fillStyle="rgba(141,152,167,.7)";g.font="9px ui-monospace,monospace";g.fillText(minLat.toFixed(3)+"° to "+maxLat.toFixed(3)+"° N",14,h-12);g.textAlign="right";g.fillText(minLon.toFixed(3)+"° to "+maxLon.toFixed(3)+"° E",w-14,h-12);g.textAlign="left";
 }
 
 /* ---------- wifi scan ---------- */
@@ -2210,6 +2305,7 @@ if(window.visualViewport){
   window.visualViewport.addEventListener("resize",cliFit);
   window.visualViewport.addEventListener("scroll",cliFit);
 }
+window.addEventListener("resize",function(){if(!$("#t-map").classList.contains("hide"))drawNeighborMap()});
 function enterCli(){
   $("#term-setup").classList.toggle("hide",st.mode!=="setup");
   if(!cli.shown){cli.shown=true;cliBanner()}

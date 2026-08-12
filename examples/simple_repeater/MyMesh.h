@@ -76,6 +76,10 @@ struct NeighbourInfo {
   uint32_t advert_timestamp;
   uint32_t heard_timestamp;
   int8_t snr; // multiplied by 4, user should divide to get float value
+  int32_t latitude_e6;
+  int32_t longitude_e6;
+  char name[25];
+  bool has_location;
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -203,7 +207,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks
   static const int NEIGHBOR_DISCOVER_MIN_FREE_PACKETS = 5;
 #endif
 
-  void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr);
+  void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr,
+                    const char* name = NULL, bool has_location = false,
+                    int32_t latitude_e6 = 0, int32_t longitude_e6 = 0);
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data, bool is_flood);
   uint8_t handleAnonRegionsReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
   uint8_t handleAnonOwnerReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);

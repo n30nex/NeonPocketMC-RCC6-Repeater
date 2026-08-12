@@ -2,14 +2,14 @@
   <img src="https://raw.githubusercontent.com/n30nex/NeonPocketMC/main/branding/neonpocketmc-mark.png" alt="NeonPocketMC pocket mesh logo" width="140">
 </p>
 
-# NeonPocketMC-RCC6-Repeater
+# NeonPocketMC RCC6 Ultimate Observer & Server
 
 MeshCore repeater and room-server firmware for the **Heltec RadioCore RCC6-L62 / SX1262**, with optional native TFT, authenticated Wi-Fi dashboard, and MQTT observation.
 
 > [!WARNING]
 > Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. Headless profiles deliberately power the TFT off. The full TFT room-server profile is explicitly experimental and must pass its delayed 32 KB heap-headroom gate after Wi-Fi, Web, and MQTT services start.
 
-This project is based on MeshCore 1.17.0 and the production MQTT observer work from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/b744b42aabb454b277fe133214c7d93d23da484b). It adds the hardware mapping already proven by the NeonPocket RCC6 companion project.
+This project uses the official MeshCore 1.17.0 baseline, the post-release SX126x boosted-RX-gain persistence fix intended for the next receiver maintenance release, and the production MQTT observer work from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/b744b42aabb454b277fe133214c7d93d23da484b). There is no official upstream MeshCore 1.17.1 tag at the time of this release.
 
 ## Choose the firmware profile
 
@@ -52,7 +52,7 @@ The USB configurator accepts only the two full Room Server profiles (and the exi
 
 ## What each role does
 
-- **Repeater/observer:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the dashboard. It is included alongside the Room Server profiles in [`v1.1.0-rc.1`](https://github.com/n30nex/NeonPocketMC-RCC6-Repeater/releases/tag/v1.1.0-rc.1).
+- **RCC6 Ultimate observer/repeater:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the full Ultimate dashboard. The new WebUI candidate is released separately as `v1.2.0-rc.1`; prior server/repeater releases remain available.
 - **Room Server, both sizes:** hosts the standard MeshCore room/client protocol with 32 recent posts held in RAM. A reboot clears those buffered posts. Repeating is optional but defaults off; a separate repeater is recommended.
 - **Room Server, minimal:** LoRa room service and USB CLI only. It has no Wi-Fi, Web dashboard, or MQTT code to configure.
 - **Room Server, full:** adds 2.4 GHz AP/STA onboarding, the authenticated dashboard, and one-way MQTT observation. MQTT data is never injected into RF.
@@ -143,16 +143,29 @@ Keep USB connected until the dashboard opens successfully.
 
 The address is assigned by the router and can change. Create a DHCP reservation in the router if the repeater should always use the same address.
 
-The phone/desktop dashboard includes:
+The **RCC6 Ultimate** phone/desktop dashboard includes:
 
 - live health badges for LoRa, Wi-Fi, MQTT, memory, and firmware fault flags;
 - packet RX/TX totals and per-minute rates, receive errors, flood/direct traffic, and duplicate counts;
 - RSSI, SNR, noise floor, radio state, last-packet age, TX budget, airtime totals, and rolling TX/RX channel-load graphs;
-- recent-neighbour count and a detailed recently-heard list with key prefix, age, advert age, and SNR;
+- an offline mesh map of directly heard repeaters that advertise valid coordinates, plus an unlocated count and complete neighbor list—no guessed positions and no radio retuning;
+- recent-neighbour name, key prefix, age, advert age, SNR, and advertised coordinates where available;
 - battery voltage, heap/free-block history, packet-pool headroom, CPU speed, and queue pressure;
 - Wi-Fi RSSI/channel/IP plus per-broker connection state, publish successes/errors, and filters;
-- rolling six-minute packet, RF, airtime, queue, memory, battery, and Wi-Fi graphs;
+- rolling packet, RF, airtime, queue, memory, battery, Wi-Fi, operational-load, and per-broker success/error graphs;
 - guided radio/Wi-Fi/MQTT editing, all built-in broker choices, an advanced CLI, and safe reboot controls.
+
+### Live RCC6 dashboard gallery
+
+These are browser captures from the connected RCC6 running the exact `v1.2.0-rc.1` firmware candidate. The overview shows real RF and broker counters; the radio and MQTT screens show the deployed controls. Private credentials and precise location data are intentionally excluded.
+
+| Live operations | Radio controls |
+|---|---|
+| ![RCC6 Ultimate Observer live overview](docs/images/ultimate/observer-overview-live.png) | ![RCC6 Ultimate Observer radio controls](docs/images/ultimate/observer-radio-live.png) |
+
+| MQTT presets and filters | Offline mesh map |
+|---|---|
+| ![RCC6 Ultimate Observer MQTT controls](docs/images/ultimate/observer-mqtt-live.png) | ![RCC6 Ultimate Observer offline mesh map](docs/images/ultimate/observer-map-live.png) |
 
 The setup AP is open, matching upstream behavior. Provision it at close range on a trusted network and change the default admin password immediately. The LAN dashboard uses plain HTTP with an application login, so operate it only on a trusted local network or through a trusted VPN; do not expose port 80 to the public Internet.
 
@@ -246,10 +259,11 @@ Some community brokers require their own credentials or local enrollment. The se
 
 Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/installation.html) and replace `COMx` with the port shown by your computer.
 
-The current observer files are:
+The current RCC6 Ultimate observer files are:
 
-- `NeonPocketMC-RCC6-Repeater-v1.1.0-rc.1-app.bin`
-- `NeonPocketMC-RCC6-Repeater-v1.1.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-app.bin`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-configurator.zip`
 
 Room Server `v1.1.0-rc.1` uses these profile-specific names:
 

@@ -755,8 +755,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             up = int(time.time() - ST.start)
             return self._json(200, {"neighbors": [
-                {"id": "d4e5f607", "age": up % 20, "advert_age": 42, "snr": 9.5},
-                {"id": "11223344", "age": 94, "advert_age": 300, "snr": 2.0},
+                {"id": "d4e5f607", "name": "Downtown Relay", "age": up % 20,
+                 "advert_age": 42, "snr": 9.5, "located": True,
+                 "lat": 43653200, "lon": -79383200},
+                {"id": "11223344", "name": "North Ridge", "age": 94,
+                 "advert_age": 300, "snr": 2.0, "located": True,
+                 "lat": 43722100, "lon": -79420100},
+                {"id": "aabbccdd", "name": "Unnamed location", "age": 155,
+                 "advert_age": 500, "snr": -1.5, "located": False,
+                 "lat": 0, "lon": 0},
             ]})
         if path == "/api/scan":
             if self._need_auth():
