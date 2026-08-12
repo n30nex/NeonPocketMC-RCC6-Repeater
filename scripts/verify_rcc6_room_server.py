@@ -95,8 +95,10 @@ def main() -> None:
             "sizeof(*framebuffer)")
 
     web = read("webui/index.html")
-    require(web, "NeonPocketMC Room Server", "Room clients", "Room posts",
-            "Post deliveries", "room_active_clients", "room_pushes", "Build profile")
+    require(web, "RCC6 Ultimate", "Room clients", "Room posts",
+            "Post deliveries", "room_active_clients", "room_pushes", "Build profile",
+            "Mesh map", "drawNeighborMap", "renderLoadBars", "renderBrokerBars",
+            "/api/neighbors", "No advertised repeater locations yet")
     for unsafe_route in ('/api/room/post', '/api/room/delete', '/api/room/client'):
         if unsafe_route in web:
             raise AssertionError(f"unsafe room mutation route present: {unsafe_route}")

@@ -195,7 +195,7 @@ private:
   char _stats_json[1536] = {0};
   volatile uint32_t _neighbors_wanted_until = 0;
   uint32_t _neighbors_built_at = 0;
-  char _neighbors_json[3072] = {0};
+  char _neighbors_json[6144] = {0};
 
   void createServer();
   void registerRoutes();
