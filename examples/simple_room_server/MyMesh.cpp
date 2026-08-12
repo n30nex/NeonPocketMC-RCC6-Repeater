@@ -737,7 +737,9 @@ void MyMesh::onAckRecv(mesh::Packet *packet, uint32_t ack_crc) {
 #define CTL_TYPE_NODE_DISCOVER_REQ   0x80
 #define CTL_TYPE_NODE_DISCOVER_RESP  0x90
 
-void MyMesh::putNeighbour(const mesh::Identity &id, uint32_t timestamp, float snr) {
+void MyMesh::putNeighbour(const mesh::Identity &id, uint32_t timestamp, float snr,
+                          const char* name, bool has_location,
+                          int32_t latitude_e6, int32_t longitude_e6) {
   // find existing neighbour, else use least recently updated
   uint32_t oldest_timestamp = 0xFFFFFFFF;
   NeighbourInfo *neighbour = &neighbours[0];
@@ -756,10 +758,22 @@ void MyMesh::putNeighbour(const mesh::Identity &id, uint32_t timestamp, float sn
   }
 
   // update neighbour info
+  if (!id.matches(neighbour->id)) {
+    neighbour->name[0] = 0;
+    neighbour->latitude_e6 = 0;
+    neighbour->longitude_e6 = 0;
+    neighbour->has_location = false;
+  }
   neighbour->id = id;
   neighbour->advert_timestamp = timestamp;
   neighbour->heard_timestamp = getRTCClock()->getCurrentTime();
   neighbour->snr = (int8_t)(snr * 4);
+  if (name && *name) StrHelper::strncpy(neighbour->name, name, sizeof(neighbour->name));
+  if (has_location) {
+    neighbour->latitude_e6 = latitude_e6;
+    neighbour->longitude_e6 = longitude_e6;
+    neighbour->has_location = true;
+  }
 }
 
 static bool isShare(const mesh::Packet *packet) {
@@ -777,7 +791,8 @@ void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32
   if (packet->getPathHashCount() == 0 && !isShare(packet)) {
     AdvertDataParser parser(app_data, app_data_len);
     if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) { // just keep neigbouring Repeaters
-      putNeighbour(id, timestamp, packet->getSNR());
+      putNeighbour(id, timestamp, packet->getSNR(), parser.getName(), parser.hasLatLon(),
+                   parser.getIntLat(), parser.getIntLon());
     }
   }
 }
@@ -1367,6 +1382,10 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
 #else
   const unsigned experimental = 0;
 #endif
+  unsigned neighbor_count = 0;
+#if MAX_NEIGHBOURS
+  for (int i = 0; i < MAX_NEIGHBOURS; ++i) if (neighbours[i].heard_timestamp) neighbor_count++;
+#endif
   int pos = snprintf(buf, buf_size,
       "{\"uptime_s\":%lu,\"batt_mv\":%u,"
       "\"heap_free\":%lu,\"heap_min\":%lu,\"heap_max_alloc\":%lu,"
@@ -1375,7 +1394,7 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
       "\"recv\":%lu,\"sent\":%lu,\"rx_err\":%lu,"
       "\"sent_flood\":%lu,\"sent_direct\":%lu,\"recv_flood\":%lu,\"recv_direct\":%lu,"
       "\"direct_dups\":%lu,\"flood_dups\":%lu,\"err_flags\":%u,"
-      "\"neighbors\":0,\"clients\":%u,\"packet_pool_free\":%d,"
+      "\"neighbors\":%u,\"clients\":%u,\"packet_pool_free\":%d,"
       "\"tx_queue\":%d,\"tx_budget_ms\":%lu,"
       "\"wifi_rssi\":%d,\"wifi_channel\":%d,\"ip\":\"%s\","
       "\"cpu_mhz\":%u,\"mqtt_queue\":%d,"
@@ -1393,7 +1412,7 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
       (unsigned long)getNumRecvFlood(), (unsigned long)getNumRecvDirect(),
       (unsigned long)mesh_tables->getNumDirectDups(),
       (unsigned long)mesh_tables->getNumFloodDups(), (unsigned)room.error_flags,
-      (unsigned)room.clients, (int)_mgr->getFreeCount(), (int)room.tx_queue,
+      neighbor_count, (unsigned)room.clients, (int)_mgr->getFreeCount(), (int)room.tx_queue,
       (unsigned long)getRemainingTxBudget(), wifi_rssi,
       WiFi.status() == WL_CONNECTED ? WiFi.channel() : 0, ip,
       (unsigned)ESP.getCpuFreqMHz(), bridge ? bridge->getQueueSize() : 0,
@@ -1420,6 +1439,40 @@ void MyMesh::buildStatsJson(char* buf, size_t buf_size) {
     pos += n;
     first = false;
   }
+  snprintf(buf + pos, buf_size - pos, "]}");
+}
+
+static void escapeRoomNeighborName(char* out, size_t out_size, const char* name) {
+  if (!out_size) return;
+  size_t pos = 0;
+  for (const unsigned char* p = (const unsigned char*)name; *p && pos + 1 < out_size; ++p) {
+    if ((*p == '"' || *p == '\\') && pos + 2 < out_size) out[pos++] = '\\';
+    if (*p >= 0x20 && pos + 1 < out_size) out[pos++] = (char)*p;
+  }
+  out[pos] = 0;
+}
+
+void MyMesh::buildNeighborsJson(char* buf, size_t buf_size) {
+  int pos = snprintf(buf, buf_size, "{\"neighbors\":[");
+  bool first = true;
+#if MAX_NEIGHBOURS
+  const uint32_t now = getRTCClock()->getCurrentTime();
+  for (int i = 0; i < MAX_NEIGHBOURS && pos > 0 && pos < (int)buf_size - 192; ++i) {
+    const NeighbourInfo& n = neighbours[i];
+    if (!n.heard_timestamp) continue;
+    char id[9]; mesh::Utils::toHex(id, n.id.pub_key, 4);
+    const uint32_t age = now >= n.heard_timestamp ? now - n.heard_timestamp : 0;
+    const uint32_t advert_age = n.advert_timestamp && now >= n.advert_timestamp ? now - n.advert_timestamp : 0;
+    char name[51]; escapeRoomNeighborName(name, sizeof(name), n.name);
+    int wrote = snprintf(buf + pos, buf_size - pos,
+        "%s{\"id\":\"%s\",\"name\":\"%s\",\"age\":%lu,\"advert_age\":%lu,\"snr\":%.2f,\"located\":%s,\"lat\":%ld,\"lon\":%ld}",
+        first ? "" : ",", id, name, (unsigned long)age, (unsigned long)advert_age,
+        (double)n.snr / 4.0, n.has_location ? "true" : "false",
+        (long)n.latitude_e6, (long)n.longitude_e6);
+    if (wrote < 0 || wrote >= (int)(buf_size - pos)) break;
+    pos += wrote; first = false;
+  }
+#endif
   snprintf(buf + pos, buf_size - pos, "]}");
 }
 #endif

@@ -104,6 +104,10 @@ struct NeighbourInfo {
   uint32_t advert_timestamp;
   uint32_t heard_timestamp;
   int8_t snr; // multiplied by 4, user should divide to get float value
+  int32_t latitude_e6;
+  int32_t longitude_e6;
+  char name[25];
+  bool has_location;
 };
 
 struct RoomSnapshot {
@@ -201,7 +205,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks
   char self_default_scope_buf[31];
   char neighbor_discover_origin[32];
 
-  void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr);
+  void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr,
+                    const char* name = nullptr, bool has_location = false,
+                    int32_t latitude_e6 = 0, int32_t longitude_e6 = 0);
   void sendNodeDiscoverReq();
   mesh::Packet* sendAnonRegionsReq(const mesh::Identity& target, uint32_t& tag);
   bool cancelNeighborDiscoverRequest();
@@ -515,5 +521,6 @@ public:
   }
   void onConfigBatchEnd() override;
   void buildStatsJson(char* buf, size_t buf_size) override;
+  void buildNeighborsJson(char* buf, size_t buf_size) override;
 #endif
 };
