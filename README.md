@@ -155,6 +155,18 @@ The **RCC6 Ultimate** phone/desktop dashboard includes:
 - rolling packet, RF, airtime, queue, memory, battery, Wi-Fi, operational-load, and per-broker success/error graphs;
 - guided radio/Wi-Fi/MQTT editing, all built-in broker choices, an advanced CLI, and safe reboot controls.
 
+### Live RCC6 dashboard gallery
+
+These are browser captures from the connected RCC6 running the exact `v1.2.0-rc.1` firmware candidate. The overview shows real RF and broker counters; the radio and MQTT screens show the deployed controls. Private credentials and precise location data are intentionally excluded.
+
+| Live operations | Radio controls |
+|---|---|
+| ![RCC6 Ultimate Observer live overview](docs/images/ultimate/observer-overview-live.png) | ![RCC6 Ultimate Observer radio controls](docs/images/ultimate/observer-radio-live.png) |
+
+| MQTT presets and filters | Offline mesh map |
+|---|---|
+| ![RCC6 Ultimate Observer MQTT controls](docs/images/ultimate/observer-mqtt-live.png) | ![RCC6 Ultimate Observer offline mesh map](docs/images/ultimate/observer-map-live.png) |
+
 The setup AP is open, matching upstream behavior. Provision it at close range on a trusted network and change the default admin password immediately. The LAN dashboard uses plain HTTP with an application login, so operate it only on a trusted local network or through a trusted VPN; do not expose port 80 to the public Internet.
 
 ### Quick troubleshooting
