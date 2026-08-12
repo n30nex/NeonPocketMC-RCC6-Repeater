@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>RCC6 Ultimate</title>
+<title>NeonPocketMC · RCC6 Ultimate</title>
 <meta name="theme-color" content="#050608">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310151c'/%3E%3Cpath d='M5 9v13l4 4h14l4-4V9' fill='none' stroke='%2300e5ff' stroke-width='2'/%3E%3Cpath d='M10 21l6-8 6 8z' fill='none' stroke='%232b7de9' stroke-width='2'/%3E%3Cg fill='%2387e000'%3E%3Ccircle cx='16' cy='13' r='2'/%3E%3Ccircle cx='10' cy='21' r='2'/%3E%3Ccircle cx='22' cy='21' r='2'/%3E%3C/g%3E%3C/svg%3E">
 <style>
@@ -117,11 +117,13 @@ canvas{width:100%;height:56px;display:block}
 .load-bars{display:grid;gap:11px}.load-row{display:grid;grid-template-columns:120px minmax(90px,1fr) 76px;gap:12px;align-items:center;font-size:12px}.load-row label{color:var(--mut)}.load-row b{text-align:right;font-size:11px}.load-track{height:8px;border-radius:8px;background:#202731;overflow:hidden}.load-track i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--acc),var(--ok));box-shadow:0 0 12px currentColor;transition:width .35s}.load-track i.warn{background:linear-gradient(90deg,var(--warn),var(--err))}
 .broker-bars{display:grid;gap:8px}.broker-bar{display:grid;grid-template-columns:minmax(90px,1fr) minmax(100px,2fr) auto;gap:10px;align-items:center;font-size:12px}.broker-bar strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.broker-bar .load-track{height:6px}.broker-bar span{color:var(--mut);font-size:10px}
 .map-card{padding:0;min-height:480px;background:#070b10}.map-card canvas{width:100%;height:480px}.map-badge{position:absolute;z-index:2;top:16px;right:16px;padding:10px 12px;display:grid;border:1px solid rgba(66,165,255,.22);border-radius:12px;background:rgba(5,8,12,.84);backdrop-filter:blur(8px)}.map-badge strong{color:var(--ok);font-size:11px}.map-badge span{color:var(--mut);font-size:9px}.map-empty{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:7px;padding:30px;text-align:center;pointer-events:none}.map-empty strong{font-size:18px}.map-empty span{max-width:460px;color:var(--mut);font-size:12px}.map-note{color:var(--mut);font-size:12px;margin:-4px 0 15px}.neighbour b{display:block}.neighbour code{display:block;margin-top:2px}
+.section-intro{margin:4px 0 16px;display:flex;align-items:end;justify-content:space-between;gap:20px}.section-intro.compact{margin:0 0 16px}.section-intro .ey{color:var(--ok);font-size:10px;font-weight:800;letter-spacing:.16em}.section-intro h3{margin:4px 0;font-size:clamp(22px,3vw,34px);letter-spacing:-.04em}.section-intro p{max-width:720px;color:var(--mut);font-size:12px}.map-switch{flex:none;padding:4px;display:flex;gap:3px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.map-switch button{min-height:38px;padding:0 14px;border:0;border-radius:9px;background:none;color:var(--mut);font:700 11px/1 system-ui;cursor:pointer}.map-switch button.on{background:var(--ok);color:#03130a;box-shadow:0 0 16px rgba(68,240,138,.16)}
+.analytics-board{padding:22px}.analytics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.analytics-grid .chart{min-height:190px}.mix-bars,.fresh-bars{margin-top:17px;display:grid;gap:10px}.mix-row,.fresh-row{display:grid;grid-template-columns:minmax(75px,1fr) minmax(80px,1.4fr) auto;gap:9px;align-items:center;font-size:11px}.mix-row strong,.fresh-row strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-track{height:7px;overflow:hidden;border-radius:8px;background:#202731}.bar-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--acc),var(--ok));box-shadow:0 0 8px rgba(68,240,138,.2)}.mix-row span,.fresh-row span{min-width:54px;color:var(--mut);font-size:9px;text-align:right}.muted{color:var(--mut);font-size:12px}
 @media(max-width:620px){.ultimate-hero{grid-template-columns:1fr 80px;min-height:200px}.hero-orbit{width:76px;height:76px}.hero-orbit:before{inset:13px}.hero-orbit:after{inset:29px}.load-row{grid-template-columns:92px 1fr 62px}.map-card,.map-card canvas{min-height:370px;height:370px}}
 .neighbour{display:grid;grid-template-columns:minmax(70px,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
 .neighbour:last-child{border-bottom:0}.neighbour code{color:var(--acc);font-size:12px}.neighbour span{color:var(--mut);text-align:right}
-@media(max-width:900px){.chartgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){main{padding:14px}.tabs{top:61px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.tabs button{min-width:0;padding:8px 3px}.chartgrid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:17px;border-radius:16px}}
+@media(max-width:900px){.chartgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-grid{grid-template-columns:1fr 1fr}.analytics-grid .chart:last-child{grid-column:1/-1}}
+@media(max-width:620px){main{padding:14px}.tabs{top:61px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.tabs button{min-width:0;padding:8px 3px}.chartgrid,.analytics-grid{grid-template-columns:1fr}.analytics-grid .chart:last-child{grid-column:auto}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:17px;border-radius:16px}.section-intro{align-items:stretch;flex-direction:column}.map-switch{width:100%}.map-switch button{flex:1}.mix-row,.fresh-row{grid-template-columns:minmax(70px,1fr) minmax(65px,1fr) 50px}}
 .net{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--ink);font:inherit;
   padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left}
 .net:last-child{border-bottom:0}
@@ -244,7 +246,7 @@ body.tab-cli{padding-bottom:0}
     <path d="M8 5h3M15 2v4M22 4h3" stroke="#00e5ff" stroke-width="2"/>
   </svg>
   <div class="hmeta">
-    <h1 id="h-name">RCC6 Ultimate</h1>
+    <h1 id="h-name">NeonPocketMC</h1>
     <div id="h-sub">connecting&hellip;</div>
   </div>
   <span class="badge hide" id="h-badge"></span>
@@ -371,8 +373,8 @@ body.tab-cli{padding-bottom:0}
 <!-- ============ MAIN APP ============ -->
 <section id="v-app" class="hide">
   <div class="tabs" id="tabs">
-    <button data-t="stats" class="on">Overview</button>
-    <button data-t="map">Mesh map</button>
+    <button data-t="stats" class="on">Dashboard</button>
+    <button data-t="map">Nearby</button>
     <button data-t="radio">Radio</button>
     <button data-t="mqtt">MQTT</button>
     <button data-t="wifi">Network</button>
@@ -380,10 +382,13 @@ body.tab-cli{padding-bottom:0}
   </div>
 
   <div id="t-map" class="hide">
+    <div class="section-intro"><div><span class="ey">NEARBY REPEATERS</span><h3>What this RCC6 can hear</h3><p>Choose actual advertised coordinates or a signal view of directly heard repeaters. Nothing here changes the radio preset.</p></div>
+      <div class="map-switch" role="group" aria-label="Nearby view"><button class="on" type="button" data-map-mode="places">Advertised places</button><button type="button" data-map-mode="signal">Signal view</button></div>
+    </div>
     <div class="card map-card">
       <canvas id="neighbor-map" height="480" aria-label="Map of directly heard repeaters that advertise a location"></canvas>
       <div class="map-badge"><strong id="map-located">0 located</strong><span id="map-unlocated">0 without location</span></div>
-      <div class="map-empty" id="map-empty"><strong>No advertised repeater locations yet</strong><span>The observer plots only directly heard repeaters that share valid coordinates. It never guesses where a node is.</span></div>
+      <div class="map-empty" id="map-empty"><strong>No advertised repeater locations yet</strong><span>Switch to Signal view to see directly heard repeaters without inventing a geographic position.</span></div>
     </div>
     <p class="map-note">This is a local, offline plot of coordinates carried in MeshCore adverts. The observer stays on its configured radio preset.</p>
     <div class="card" id="neighbor-card">
@@ -542,7 +547,7 @@ body.tab-cli{padding-bottom:0}
 
   <div id="t-stats">
     <div class="card ultimate-hero">
-      <div><span class="ey">RCC6 ULTIMATE OBSERVER</span><h3>Mesh and MQTT, at a glance</h3><p>Live radio health, broker delivery, queues, power and recently heard repeaters—all from this node.</p></div>
+      <div><span class="ey" id="hero-role">RCC6 ULTIMATE</span><h3 id="hero-title">Your mesh service, right now</h3><p id="hero-copy">Radio activity, nearby repeaters, MQTT delivery, queues and power in one place.</p></div>
       <div class="hero-orbit" aria-hidden="true"><i></i><i></i></div>
     </div>
     <div class="card">
@@ -551,11 +556,19 @@ body.tab-cli{padding-bottom:0}
       <div class="tiles" id="tiles"></div>
     </div>
     <div class="card">
-      <h2>Operational load</h2>
+      <h2>Capacity</h2>
       <div class="load-bars" id="load-bars"><div class="load-row"><label>Collecting data</label><div class="load-track"><i></i></div><b>—</b></div></div>
     </div>
+    <div class="card analytics-board">
+      <div class="section-intro compact"><div><span class="ey">AT A GLANCE</span><h3>Traffic, signal and nearby activity</h3><p>Short, factual summaries from counters on this device.</p></div></div>
+      <div class="analytics-grid">
+        <div class="chart"><h3>Traffic mix</h3><div class="mix-bars" id="mix-bars"></div></div>
+        <div class="chart"><h3>Signal distribution</h3><div class="legend" id="leg-signal-bars"></div><canvas id="bars-signal" height="112"></canvas></div>
+        <div class="chart"><h3>Freshest repeaters</h3><div class="fresh-bars" id="fresh-bars"><span class="muted">Waiting for neighbor data.</span></div></div>
+      </div>
+    </div>
     <div class="card">
-      <h2>Rolling activity <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0">last 6 minutes</span></h2>
+      <h2>Live charts <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0">about six minutes</span></h2>
       <div class="chartgrid">
         <div class="chart"><h3>Packet rate</h3><div class="legend" id="leg-packets"></div><canvas id="spark-packets" height="90"></canvas></div>
         <div class="chart"><h3>RF signal</h3><div class="legend" id="leg-rf"></div><canvas id="spark-rf" height="90"></canvas></div>
@@ -650,7 +663,7 @@ var SENTINEL="********";
 var st={mode:"",authed:false,cfg:null,orig:{},dirty:{},presets:[],nslots:6,
   statsTimer:0,statsOn:false,statsInflight:false,lastStats:null,neighborPoll:0,neighbors:[],
   hist:{rx:[],tx:[],rssi:[],snr:[],noise:[],txair:[],rxair:[],txq:[],mqttq:[],mqttok:[],mqtterr:[],heap:[],heapmin:[],batt:[],wifi:[]},
-  scanTarget:"",scanTimer:0};
+  scanTarget:"",scanTimer:0,mapMode:"places"};
 
 function $(s){return document.querySelector(s)}
 function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s))}
@@ -716,12 +729,15 @@ function boot(){
     st.mode=s.mode;st.authed=s.auth;st.needsSetup=!!s.needs_setup;st.nslots=s.active_slots||s.runtime_slots||6;
     if(s.max_cmds>0)CLI_MAX=s.max_cmds;
     st.fw=s.fw||"";st.build=s.build_date||"";st.role=s.role||"";st.board=s.board||"";
-    document.title=st.role==="room_server"?"RCC6 Ultimate Room Server":"RCC6 Ultimate Observer";
+    document.title=st.role==="room_server"?"NeonPocketMC · RCC6 Ultimate Room Server":"NeonPocketMC · RCC6 Ultimate Repeater";
     var roomMode=st.role==="room_server";
-    $("#neighbor-card").classList.toggle("hide",roomMode);
-    $('#tabs button[data-t="map"]').classList.toggle("hide",roomMode);
-    $("#h-name").textContent=s.name||"RCC6 Ultimate";
-    $("#h-sub").textContent=(roomMode?"Room server":"MQTT observer / repeater")+" · "+shortVer()+" · "+s.board;
+    $("#h-name").textContent=s.name||"NeonPocketMC";
+    $("#h-sub").textContent=(roomMode?"RCC6 Ultimate Room Server":"RCC6 Ultimate Repeater")+" · "+shortVer()+" · "+s.board;
+    $("#hero-role").textContent=roomMode?"RCC6 ULTIMATE ROOM SERVER":"RCC6 ULTIMATE REPEATER";
+    $("#hero-title").textContent=roomMode?"Room service, radio and MQTT":"Repeater, radio and MQTT";
+    $("#hero-copy").textContent=roomMode
+      ?"Clients, room posts, radio activity, nearby repeaters, broker delivery and power in one place."
+      :"Forwarding, radio activity, nearby repeaters, broker delivery, queues and power in one place.";
     var b=$("#h-badge");b.classList.remove("hide");
     if(s.mode==="setup"){b.textContent="SETUP";b.classList.add("setup")}else{b.textContent="LAN"}
     // Only in setup mode: in LAN mode the console is a tab, and the header is
@@ -1206,6 +1222,11 @@ $("#tabs").addEventListener("click",function(ev){
   if(b.dataset.t==="cli")enterCli();
   if(b.dataset.t==="map"){pollNeighbors();setTimeout(drawNeighborMap,0)}
 });
+$$('[data-map-mode]').forEach(function(button){button.addEventListener('click',function(){
+  st.mapMode=button.dataset.mapMode;
+  $$('[data-map-mode]').forEach(function(item){item.classList.toggle('on',item===button)});
+  drawNeighborMap();
+})});
 
 /* ---------- stats ---------- */
 function fmtUp(s){var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
@@ -1228,6 +1249,28 @@ function renderBrokerBars(slots){
     var ok=Number(slot.ok||0),err=Number(slot.err||0),total=ok+err,pct=total?ok/total*100:0;
     return'<div class="broker-bar"><strong>'+esc(slot.name||("Slot "+slot.n))+'</strong><div class="load-track"><i'+(err?' class="warn"':'')+' style="width:'+pct.toFixed(1)+'%"></i></div><span>'+ok+' ok · '+err+' err</span></div>';
   }).join(""):'<span style="color:var(--mut);font-size:12px">No broker slots configured.</span>';
+}
+function ratioRow(label,value,total,colorName){
+  var pct=total?value/total*100:0;
+  return'<div class="mix-row"><strong>'+esc(label)+'</strong><div class="bar-track"><i style="width:'+pct.toFixed(1)+'%;background:'+colorName+'"></i></div><span>'+value+' · '+pct.toFixed(0)+'%</span></div>';
+}
+function renderTrafficMix(s){
+  var direct=Number(s.recv_direct||0)+Number(s.sent_direct||0),flood=Number(s.recv_flood||0)+Number(s.sent_flood||0),other=Math.max(0,Number(s.recv||0)+Number(s.sent||0)-direct-flood),total=direct+flood+other;
+  $("#mix-bars").innerHTML=ratioRow("Direct",direct,total,"linear-gradient(90deg,#39e7ff,#44f08a)")+
+    ratioRow("Flood",flood,total,"linear-gradient(90deg,#42a5ff,#2457ff)")+
+    ratioRow("Other",other,total,"linear-gradient(90deg,#ffb84d,#ff8a3d)");
+}
+function drawSignalBars(){
+  var cv=$("#bars-signal"),dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(220,cv.clientWidth||0),h=112;
+  cv.width=w*dpr;cv.height=h*dpr;var g=cv.getContext("2d");g.scale(dpr,dpr);g.clearRect(0,0,w,h);
+  var edges=[-130,-115,-105,-95,-85,-70],counts=edges.slice(0,-1).map(function(low,i){return st.hist.rssi.filter(function(v){return v>=low&&v<edges[i+1]}).length}),mx=Math.max.apply(null,[1].concat(counts)),gap=7,bw=(w-gap*(counts.length-1))/counts.length;
+  counts.forEach(function(count,i){var bh=Math.max(count?5:1,count/mx*(h-28)),grad=g.createLinearGradient(0,h-bh,0,h);grad.addColorStop(0,i>=3?"#44f08a":i>=2?"#39e7ff":"#ff8a3d");grad.addColorStop(1,"rgba(36,87,255,.25)");g.fillStyle=grad;g.fillRect(i*(bw+gap),h-bh-15,bw,bh);g.fillStyle="rgba(245,248,251,.75)";g.font="9px system-ui";g.textAlign="center";g.fillText(String(count),i*(bw+gap)+bw/2,h-3)});g.textAlign="left";
+  $("#leg-signal-bars").innerHTML='<span>Very weak</span><span>Usable</span><span>Strong</span>';
+}
+function renderFreshBars(){
+  var host=$("#fresh-bars"),nodes=(st.neighbors||[]).slice(0,6);
+  if(!nodes.length){host.innerHTML='<span class="muted">Waiting for neighbor data.</span>';return}
+  host.innerHTML=nodes.map(function(n){var age=Math.max(0,Number(n.age||0)),fresh=Math.max(5,100-Math.min(100,age/216));return'<div class="fresh-row"><strong>'+esc(n.name||"Unnamed repeater")+'</strong><div class="bar-track"><i style="width:'+fresh.toFixed(1)+'%"></i></div><span>'+fmtAge(age)+' · '+Number(n.snr||0).toFixed(1)+' dB</span></div>'}).join("");
 }
 function startStats(){stopStats();st.statsOn=true;pollStats()}
 function stopStats(){st.statsOn=false;if(st.statsTimer){clearTimeout(st.statsTimer);st.statsTimer=0}}
@@ -1303,6 +1346,7 @@ function pollStats(){
     push(st.hist.txq,s.tx_queue);push(st.hist.mqttq,s.mqtt_queue);push(st.hist.heap,kb);
     push(st.hist.mqttok,mqttRate);push(st.hist.mqtterr,mqttErrRate);
     push(st.hist.heapmin,minKb);push(st.hist.batt,s.batt_mv/1000);push(st.hist.wifi,s.wifi_rssi);
+    renderTrafficMix(s);drawSignalBars();renderFreshBars();
     var blue=color("--acc","#2b7de9"),green=color("--ok","#1d9d5f"),red=color("--err","#d64545"),orange=color("--warn","#c8871a"),mut=color("--mut","#66738a");
     legend("#leg-packets",[{n:"RX",v:rxrate.toFixed(1)+"/min",c:blue},{n:"TX",v:txrate.toFixed(1)+"/min",c:green}]);
     plot($("#spark-packets"),[{d:st.hist.rx,c:blue},{d:st.hist.tx,c:green}],false);
@@ -1327,7 +1371,7 @@ function pollStats(){
       return'<div class="kv"><i>Slot '+x.n+" · "+esc(x.name)+'</i><b><span class="pill '+esc(x.state)+'">'+esc(x.state)+'</span> '+x.ok+' ok / '+x.err+' err</b></div>'+f;
     }).join(""):"No servers configured.";
     st.lastStats=s;
-    if(st.role!=="room_server"&&++st.neighborPoll%4===1)pollNeighbors();
+    if(++st.neighborPoll%4===1)pollNeighbors();
   }).catch(function(){}).then(function(){
     // Runs whether the poll resolved or rejected: clear the guard, then schedule
     // the next tick only if the Stats tab is still active.
@@ -1366,14 +1410,25 @@ function pollNeighbors(){
     $("#stat-neighbors").innerHTML=ns.length?ns.map(function(n){
       return'<div class="neighbour"><div><b>'+esc(n.name||"Unnamed repeater")+'</b><code>'+esc(n.id)+'</code></div><span>heard '+fmtAge(n.age)+' ago<br>SNR '+Number(n.snr).toFixed(1)+' dB</span><span>'+(n.advert_age?'advert '+fmtAge(n.advert_age)+' ago':'no advert')+(n.located?'<br>'+(Number(n.lat)/1e6).toFixed(3)+', '+(Number(n.lon)/1e6).toFixed(3):'')+'</span></div>';
     }).join(""):"No neighbours heard yet.";
+    renderFreshBars();
     drawNeighborMap();
   }).catch(function(){});
+}
+
+function drawNeighborSignalView(g,w,h){
+  var nodes=(st.neighbors||[]).slice(0,64),cx=w/2,cy=h/2,maxR=Math.max(70,Math.min(w,h)*.42);
+  $("#map-located").textContent=nodes.length+" heard";$("#map-unlocated").textContent="distance shows signal, not geography";$("#map-empty").classList.toggle("hide",!!nodes.length);
+  var grad=g.createRadialGradient(cx,cy,8,cx,cy,Math.max(w,h)*.62);grad.addColorStop(0,"#10202a");grad.addColorStop(1,"#070b10");g.fillStyle=grad;g.fillRect(0,0,w,h);
+  [-80,-95,-110,-125].forEach(function(db,i){var radius=maxR*(i+1)/4;g.strokeStyle="rgba(57,231,255,.14)";g.beginPath();g.arc(cx,cy,radius,0,Math.PI*2);g.stroke();g.fillStyle="rgba(141,152,167,.62)";g.font="9px system-ui";g.fillText(db+" dBm",cx+7,cy-radius+12)});
+  nodes.forEach(function(n,i){var id=String(n.id||n.name||i),seed=0;for(var j=0;j<id.length;j++)seed=(seed+id.charCodeAt(j)*(j+3))%65535;var angle=(seed%360)*Math.PI/180,rssi=Number(n.rssi),snr=Math.max(-20,Math.min(12,Number(n.snr||-20))),distance=isFinite(rssi)?(-Math.max(-130,Math.min(-70,rssi))-70)/60:(12-snr)/32,radius=maxR*Math.max(.12,Math.min(1,distance)),x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius,age=Math.max(0,Number(n.age||0)),alpha=Math.max(.3,1-Math.min(1,age/21600));g.globalAlpha=alpha;g.fillStyle="#ff8a3d";g.shadowColor="#ff8a3d";g.shadowBlur=10;g.beginPath();g.arc(x,y,4,0,Math.PI*2);g.fill();g.shadowBlur=0;if(i<18){g.fillStyle="#f5f8fb";g.font="10px system-ui";g.fillText(String(n.name||"Unnamed").slice(0,18),x+8,y-6)}g.globalAlpha=1});
+  g.fillStyle="#44f08a";g.shadowColor="#44f08a";g.shadowBlur=15;g.fillRect(cx-5,cy-5,10,10);g.shadowBlur=0;g.fillStyle="#f5f8fb";g.font="700 10px system-ui";g.fillText("THIS RCC6",cx+11,cy+4);g.fillStyle="rgba(141,152,167,.72)";g.font="9px system-ui";g.fillText("Radius = last directly heard SNR · brightness = heard age",14,h-12);
 }
 
 function drawNeighborMap(){
   var cv=$("#neighbor-map");if(!cv)return;
   var dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(280,cv.clientWidth||0),h=Math.max(360,cv.clientHeight||0);
   cv.width=w*dpr;cv.height=h*dpr;var g=cv.getContext("2d");g.scale(dpr,dpr);
+  if(st.mapMode==="signal"){drawNeighborSignalView(g,w,h);return}
   var grad=g.createLinearGradient(0,0,0,h);grad.addColorStop(0,"#0d1820");grad.addColorStop(1,"#070b10");g.fillStyle=grad;g.fillRect(0,0,w,h);
   g.strokeStyle="rgba(57,231,255,.09)";g.lineWidth=1;
   for(var x=0;x<=w;x+=Math.max(34,w/12)){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}
