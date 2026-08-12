@@ -390,7 +390,7 @@ body.tab-cli{padding-bottom:0}
       <div class="map-badge"><strong id="map-located">0 located</strong><span id="map-unlocated">0 without location</span></div>
       <div class="map-empty" id="map-empty"><strong>No advertised repeater locations yet</strong><span>Switch to Signal view to see directly heard repeaters without inventing a geographic position.</span></div>
     </div>
-    <p class="map-note">This is a local, offline plot of coordinates carried in MeshCore adverts. The observer stays on its configured radio preset.</p>
+    <p class="map-note">These local views use coordinates carried in MeshCore adverts or the last directly heard SNR. The radio stays on its configured preset.</p>
     <div class="card" id="neighbor-card">
       <h2>Directly heard repeaters <span id="neighbor-age" style="float:right;font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
       <div id="stat-neighbors" style="color:var(--mut);font-size:13px">Collecting…</div>
@@ -1419,7 +1419,7 @@ function drawNeighborSignalView(g,w,h){
   var nodes=(st.neighbors||[]).slice(0,64),cx=w/2,cy=h/2,maxR=Math.max(70,Math.min(w,h)*.42);
   $("#map-located").textContent=nodes.length+" heard";$("#map-unlocated").textContent="distance shows signal, not geography";$("#map-empty").classList.toggle("hide",!!nodes.length);
   var grad=g.createRadialGradient(cx,cy,8,cx,cy,Math.max(w,h)*.62);grad.addColorStop(0,"#10202a");grad.addColorStop(1,"#070b10");g.fillStyle=grad;g.fillRect(0,0,w,h);
-  [-80,-95,-110,-125].forEach(function(db,i){var radius=maxR*(i+1)/4;g.strokeStyle="rgba(57,231,255,.14)";g.beginPath();g.arc(cx,cy,radius,0,Math.PI*2);g.stroke();g.fillStyle="rgba(141,152,167,.62)";g.font="9px system-ui";g.fillText(db+" dBm",cx+7,cy-radius+12)});
+  [10,5,0,-10].forEach(function(db,i){var radius=maxR*(i+1)/4;g.strokeStyle="rgba(57,231,255,.14)";g.beginPath();g.arc(cx,cy,radius,0,Math.PI*2);g.stroke();g.fillStyle="rgba(141,152,167,.62)";g.font="9px system-ui";g.fillText(db+" dB",cx+7,cy-radius+12)});
   nodes.forEach(function(n,i){var id=String(n.id||n.name||i),seed=0;for(var j=0;j<id.length;j++)seed=(seed+id.charCodeAt(j)*(j+3))%65535;var angle=(seed%360)*Math.PI/180,rssi=Number(n.rssi),snr=Math.max(-20,Math.min(12,Number(n.snr||-20))),distance=isFinite(rssi)?(-Math.max(-130,Math.min(-70,rssi))-70)/60:(12-snr)/32,radius=maxR*Math.max(.12,Math.min(1,distance)),x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius,age=Math.max(0,Number(n.age||0)),alpha=Math.max(.3,1-Math.min(1,age/21600));g.globalAlpha=alpha;g.fillStyle="#ff8a3d";g.shadowColor="#ff8a3d";g.shadowBlur=10;g.beginPath();g.arc(x,y,4,0,Math.PI*2);g.fill();g.shadowBlur=0;if(i<18){g.fillStyle="#f5f8fb";g.font="10px system-ui";g.fillText(String(n.name||"Unnamed").slice(0,18),x+8,y-6)}g.globalAlpha=1});
   g.fillStyle="#44f08a";g.shadowColor="#44f08a";g.shadowBlur=15;g.fillRect(cx-5,cy-5,10,10);g.shadowBlur=0;g.fillStyle="#f5f8fb";g.font="700 10px system-ui";g.fillText("THIS RCC6",cx+11,cy+4);g.fillStyle="rgba(141,152,167,.72)";g.font="9px system-ui";g.fillText("Radius = last directly heard SNR · brightness = heard age",14,h-12);
 }
