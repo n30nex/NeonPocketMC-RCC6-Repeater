@@ -85,9 +85,9 @@ jobs:
 
           out = Path("release")
           out.mkdir()
-          app_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-app.bin"
-          recovery_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin"
-          configurator_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-configurator.zip"
+          app_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-app.bin"
+          recovery_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin"
+          configurator_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-configurator.zip"
           (out / app_name).write_bytes(app)
           (out / recovery_name).write_bytes(merged)
 
@@ -116,7 +116,7 @@ jobs:
               "Git commit: ${{ github.event.pull_request.head.sha || github.sha }}\n"
               "Target: heltec_rcc6_repeater_observer_mqtt\n"
               "MeshCore base: official v1.17.0 + post-release SX126x RX-gain fix\n"
-              "Observer base: agessaman/MeshCore observer-firmware b744b42aabb454b277fe133214c7d93d23da484b\n"
+              "Observer base: agessaman/MeshCore b744b42a plus reviewed stability fixes through 8d1a0eb3\n"
           )
           (out / "QUICK_START.txt").write_text(quick_start, encoding="utf-8")
           (out / "SETUP_AND_HELP.md").write_text(setup_help, encoding="utf-8")

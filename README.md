@@ -9,7 +9,7 @@ MeshCore repeater and room-server firmware for the **Heltec RadioCore RCC6-L62 /
 > [!WARNING]
 > Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. Headless profiles deliberately power the TFT off. The full TFT room-server profile is explicitly experimental and must pass its delayed 32 KB heap-headroom gate after Wi-Fi, Web, and MQTT services start.
 
-This project uses the official MeshCore 1.17.0 baseline, the post-release SX126x boosted-RX-gain persistence fix intended for the next receiver maintenance release, and the production MQTT observer work from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/b744b42aabb454b277fe133214c7d93d23da484b). There is no official upstream MeshCore 1.17.1 tag at the time of this release.
+This project uses the official MeshCore 1.17.0 baseline, the post-release SX126x boosted-RX-gain persistence fix intended for the next receiver maintenance release, and the production MQTT observer base plus reviewed memory, reconnect, retry, and packet-path fixes from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/8d1a0eb3). There is no official upstream MeshCore 1.17.1 tag at the time of this release.
 
 ## Choose the firmware profile
 
@@ -52,7 +52,7 @@ The USB configurator accepts only the two full Room Server profiles (and the exi
 
 ## What each role does
 
-- **RCC6 Ultimate observer/repeater:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the full Ultimate dashboard. The new WebUI candidate is released separately as `v1.2.0-rc.1`; prior server/repeater releases remain available.
+- **RCC6 Ultimate observer/repeater:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the full Ultimate dashboard. The human-first analytics and Nearby overhaul ships as `v1.3.0-rc.1`; prior server/repeater releases remain available.
 - **Room Server, both sizes:** hosts the standard MeshCore room/client protocol with 32 recent posts held in RAM. A reboot clears those buffered posts. Repeating is optional but defaults off; a separate repeater is recommended.
 - **Room Server, minimal:** LoRa room service and USB CLI only. It has no Wi-Fi, Web dashboard, or MQTT code to configure.
 - **Room Server, full:** adds 2.4 GHz AP/STA onboarding, the authenticated dashboard, and one-way MQTT observation. MQTT data is never injected into RF.
@@ -63,15 +63,15 @@ All roles use fail-closed MeshCore storage and default their own adverts to **3-
 
 | Image | Setup after flashing |
 |---|---|
-| Ultimate repeater/observer `v1.2.0-rc.1` | Supplied Windows/Linux network wizard |
-| Ultimate Room Server full headless or full TFT | `v1.2.0-rc.1` network wizard; it also changes both room passwords |
+| Ultimate repeater/observer `v1.3.0-rc.1` | Supplied Windows/Linux network wizard |
+| Ultimate Room Server full headless or full TFT | `v1.3.0-rc.1` network wizard; it also changes both room passwords |
 | Room Server minimal headless or minimal TFT | USB serial CLI or the generic MeshCore USB configurator; no network wizard |
 
 Always attach a tuned LoRa antenna before powering or transmitting. Flash the selected application image at `0x10000`, leave USB connected, and do not deploy until the radio settings and passwords have been changed.
 
 ### Guided setup for observer and full profiles
 
-Download `NeonPocketMC-RCC6-Ultimate-Server-v1.2.0-rc.1-configurator.zip` from the same release as the selected firmware.
+Download `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.1-configurator.zip` from the same release as the selected firmware.
 
 - **Windows:** double-click `Configure-RCC6-Windows.cmd`.
 - **Linux:** open the extracted folder in a terminal and run `sh configure-rcc6-linux.sh`.
@@ -157,7 +157,7 @@ The **RCC6 Ultimate** phone/desktop dashboard includes:
 
 ### Live RCC6 dashboard gallery
 
-These are browser captures from the connected RCC6 running the exact `v1.2.0-rc.1` firmware candidate. The overview shows real RF and broker counters; the radio and MQTT screens show the deployed controls. Private credentials and precise location data are intentionally excluded.
+These are browser captures from the exact `v1.3.0-rc.1` dashboard candidate. The overview shows realistic fixture data for layout verification; the released firmware supplies its own live RF, neighbor, and broker counters. Private credentials and precise location data are intentionally excluded.
 
 | Live operations | Radio controls |
 |---|---|
@@ -261,18 +261,18 @@ Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/
 
 The current RCC6 Ultimate server release files are:
 
-- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-app.bin`
-- `NeonPocketMC-RCC6-Ultimate-Observer-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
-- `NeonPocketMC-RCC6-Ultimate-Server-v1.2.0-rc.1-configurator.zip`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-app.bin`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
+- `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.1-configurator.zip`
 
-Room Server `v1.2.0-rc.1` uses these profile-specific names:
+Room Server `v1.3.0-rc.1` uses these profile-specific names:
 
 | Profile | Application update | Recovery image |
 |---|---|---|
-| Minimal headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Minimal TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.2.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.2.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Full TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
 
 Do not substitute a similarly named observer, profile, or development artifact.
 
@@ -293,7 +293,7 @@ Do not erase the whole flash if you want to retain identity and settings. Never 
 ## Source and scope
 
 - MeshCore base: 1.17.0.
-- MQTT observer base: `agessaman/MeshCore` `observer-firmware` at `b744b42aabb454b277fe133214c7d93d23da484b`.
+- MQTT observer base: `agessaman/MeshCore` `observer-firmware` at `b744b42a`, plus selected reviewed stability fixes through `8d1a0eb3`.
 - RCC6 hardware mapping provenance: the separately tested `NeonPocketMC-RCC6` companion project.
 - Release targets: the established `heltec_rcc6_repeater_observer_mqtt` plus all four explicit Room Server profiles listed above.
 - License: MIT; dependency notices and licenses remain in the source tree.
