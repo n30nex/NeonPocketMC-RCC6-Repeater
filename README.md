@@ -9,6 +9,8 @@ MeshCore repeater and room-server firmware for the **Heltec RadioCore RCC6-L62 /
 > [!WARNING]
 > Experimental RCC6-only firmware. Do not flash it to RC32, RC52, or another ESP32-C6/SX1262 board. Headless profiles deliberately power the TFT off. The full TFT room-server profile is explicitly experimental and must pass its delayed 32 KB heap-headroom gate after Wi-Fi, Web, and MQTT services start.
 
+**Guided install:** [flasher.canadaverse.org](https://flasher.canadaverse.org/)
+
 This project uses the official MeshCore 1.17.0 baseline, the post-release SX126x boosted-RX-gain persistence fix intended for the next receiver maintenance release, and the production MQTT observer base plus reviewed memory, reconnect, retry, and packet-path fixes from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/8d1a0eb3). There is no official upstream MeshCore 1.17.1 tag at the time of this release.
 
 ## Choose the firmware profile
