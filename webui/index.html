@@ -1320,9 +1320,10 @@ function pollStats(){
       tile("Post deliveries",s.room_pushes,"pushes queued")+
       tile("Build profile",s.profile||"full-headless",s.experimental?"experimental":"supported"):
       tile("Neighbours",s.neighbors,"recently heard");
+    var battValid=Number(s.batt_mv)>0,battVolts=battValid?s.batt_mv/1000:null;
     $("#tiles").innerHTML=
       tile("Uptime",fmtUp(s.uptime_s))+
-      tile("Battery",(s.batt_mv/1000).toFixed(2),"V")+
+      tile("Battery",battValid?battVolts.toFixed(2):"—",battValid?"V":"unavailable")+
       roleTiles+
       tile("Last RF packet",s.recv?fmtAge(s.last_rx_age):"never")+
       tile("Packet rate",rxrate.toFixed(1)+" RX","/min · "+txrate.toFixed(1)+" TX")+
@@ -1350,7 +1351,7 @@ function pollStats(){
     push(st.hist.noise,s.noise);push(st.hist.txair,txload);push(st.hist.rxair,rxload);
     push(st.hist.txq,s.tx_queue);push(st.hist.mqttq,s.mqtt_queue);push(st.hist.heap,kb);
     push(st.hist.mqttok,mqttRate);push(st.hist.mqtterr,mqttErrRate);
-    push(st.hist.heapmin,minKb);push(st.hist.batt,s.batt_mv/1000);push(st.hist.wifi,s.wifi_rssi);
+    push(st.hist.heapmin,minKb);push(st.hist.batt,battValid?battVolts:null);push(st.hist.wifi,s.wifi_rssi);
     renderTrafficMix(s);drawSignalBars();renderFreshBars();
     var blue=color("--acc","#2b7de9"),green=color("--ok","#1d9d5f"),red=color("--err","#d64545"),orange=color("--warn","#c8871a"),mut=color("--mut","#66738a");
     legend("#leg-packets",[{n:"RX",v:rxrate.toFixed(1)+"/min",c:blue},{n:"TX",v:txrate.toFixed(1)+"/min",c:green}]);
@@ -1365,7 +1366,7 @@ function pollStats(){
     plot($("#spark-mqtt"),[{d:st.hist.mqttok,c:green},{d:st.hist.mqtterr,c:red}],false,0);
     legend("#leg-heap",[{n:"free",v:kb+" KB",c:green},{n:"minimum",v:minKb+" KB",c:red}]);
     plot($("#spark-heap"),[{d:st.hist.heap,c:green},{d:st.hist.heapmin,c:red}],false,0);
-    legend("#leg-link",[{n:"battery",v:(s.batt_mv/1000).toFixed(2)+" V",c:green},{n:"WiFi",v:s.wifi_rssi+" dBm",c:blue}]);
+    legend("#leg-link",[{n:"battery",v:battValid?battVolts.toFixed(2)+" V":"—",c:green},{n:"WiFi",v:s.wifi_rssi+" dBm",c:blue}]);
     plot($("#spark-link"),[{d:st.hist.batt,c:green},{d:st.hist.wifi,c:blue}],true);
     $("#stat-slots").innerHTML=sl.length?sl.map(function(x){
       // "filt" is sent only when the slot is not on the all-types default. A
@@ -1384,7 +1385,7 @@ function pollStats(){
     if(st.statsOn)st.statsTimer=setTimeout(pollStats,3000);
   });
 }
-function push(a,v){a.push(Number(v)||0);if(a.length>120)a.shift()}
+function push(a,v){var n=Number(v);a.push(v==null||!Number.isFinite(n)?null:n);if(a.length>120)a.shift()}
 function color(name,fallback){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||fallback}
 function plot(cv,series,perSeries,fixedMin,fixedMax){
   var dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=90;
@@ -1392,14 +1393,14 @@ function plot(cv,series,perSeries,fixedMin,fixedMax){
   var g=cv.getContext("2d");g.scale(dpr,dpr);g.clearRect(0,0,w,h);
   g.strokeStyle=color("--line","#e2e7ee");g.lineWidth=1;
   [0.25,0.5,0.75].forEach(function(p){g.beginPath();g.moveTo(0,h*p);g.lineTo(w,h*p);g.stroke()});
-  var all=[];series.forEach(function(s){all=all.concat(s.d)});
+  var all=[];series.forEach(function(s){all=all.concat(s.d.filter(Number.isFinite))});
   if(all.length<2)return;
   var commonMin=fixedMin!=null?fixedMin:Math.min.apply(null,all),commonMax=fixedMax!=null?fixedMax:Math.max.apply(null,all);
-  series.forEach(function(s){var data=s.d;if(data.length<2)return;
-    var mn=perSeries?Math.min.apply(null,data):commonMin,mx=perSeries?Math.max.apply(null,data):commonMax;
+  series.forEach(function(s){var data=s.d,valid=data.filter(Number.isFinite);if(valid.length<2)return;
+    var mn=perSeries?Math.min.apply(null,valid):commonMin,mx=perSeries?Math.max.apply(null,valid):commonMax;
     if(fixedMin!=null)mn=fixedMin;if(fixedMax!=null)mx=fixedMax;if(mx===mn){mx+=1;mn-=1}
-    g.strokeStyle=s.c;g.lineWidth=2;g.lineJoin="round";g.beginPath();
-    data.forEach(function(v,i){var x=i/(data.length-1)*(w-4)+2,y=h-4-(v-mn)/(mx-mn)*(h-10);i?g.lineTo(x,y):g.moveTo(x,y)});
+    g.strokeStyle=s.c;g.lineWidth=2;g.lineJoin="round";g.beginPath();var drawing=false;
+    data.forEach(function(v,i){if(!Number.isFinite(v)){drawing=false;return}var x=i/(data.length-1)*(w-4)+2,y=h-4-(v-mn)/(mx-mn)*(h-10);drawing?g.lineTo(x,y):g.moveTo(x,y);drawing=true});
     g.stroke();
   });
 }

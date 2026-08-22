@@ -69,9 +69,11 @@ def main() -> None:
             "WiFi.disconnect(true", "next_memory_probe = millis() + 30000")
 
     ui_cpp = read("examples/simple_room_server/UITask.cpp")
+    board_cpp = read("variants/heltec_rcc6/heltec_rcc6.cpp")
     boot_h = read("examples/simple_room_server/NeonPocketSplash.h")
     require(ui_cpp, "NeonPocketSplash::drawFrame", "NeonPocketSplash::FRAME_MILLIS",
-            "NEONPOCKET ROOM")
+            "NEONPOCKET ROOM", '"TXQ %u ERR %04X BAT --"')
+    require(board_cpp, "measured <= 4500U")
     require(boot_h, "DURATION_MILLIS = 3200", "FRAME_MILLIS = 125",
             "NEONPOCKETMC", "VECTOR BOOT", "RADIO LINK", "ROOM SERVICES",
             "MESH READY", "MAGENTA", "drawPocket", "MESHCORE ROOM SERVER")
@@ -100,7 +102,8 @@ def main() -> None:
             "What this RCC6 can hear", "Signal view", "drawNeighborMap",
             "renderTrafficMix", "drawSignalBars", "renderFreshBars",
             "/api/neighbors", "No advertised repeater locations yet",
-            'data-k="gps.adv_loc"', "Share saved coordinates")
+            'data-k="gps.adv_loc"', "Share saved coordinates",
+            'battValid?battVolts.toFixed(2):"—"')
     web_server = read("src/helpers/esp32/WebConfigServer.cpp")
     web_keys = read("src/helpers/WebConfigKeys.h")
     require(web_server, 'radio["advert_loc_policy"]', "wcIsValidAdvertLocationPolicy",
@@ -108,6 +111,13 @@ def main() -> None:
     require(web_keys, '"gps.adv_loc"', "wcIsValidAdvertLocationPolicy")
     require(mesh_h, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
     require(mesh_cpp, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
+    repeater_mesh = read("examples/simple_repeater/MyMesh.cpp")
+    require(mesh_cpp, "if (battery_mv) telemetry.addVoltage")
+    require(repeater_mesh, "if (battery_mv) telemetry.addVoltage")
+    mqtt = read("src/helpers/bridges/MQTTBridge.cpp")
+    require(mqtt, "if (measured) battery_mv = measured;")
+    require(web, "push(st.hist.batt,battValid?battVolts:null)",
+            "data.filter(Number.isFinite)", "if(!Number.isFinite(v))")
     for unsafe_route in ('/api/room/post', '/api/room/delete', '/api/room/client'):
         if unsafe_route in web:
             raise AssertionError(f"unsafe room mutation route present: {unsafe_route}")
