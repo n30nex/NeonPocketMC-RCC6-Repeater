@@ -151,3 +151,17 @@ jobs:
           name: NeonPocketMC-RCC6-Repeater-${{ github.event.pull_request.head.sha || github.sha }}
           path: release/
           if-no-files-found: error
+
+  required-repeater:
+    name: required-repeater
+    if: ${{ always() }}
+    needs: [unit-tests, build-rcc6]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require tests and repeater firmware
+        env:
+          TEST_RESULT: ${{ needs.unit-tests.result }}
+          BUILD_RESULT: ${{ needs.build-rcc6.result }}
+        run: |
+          test "$TEST_RESULT" = success
+          test "$BUILD_RESULT" = success
