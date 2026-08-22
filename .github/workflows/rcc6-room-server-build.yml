@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - codex/**
   pull_request:
     branches:
       - main
@@ -91,3 +90,17 @@ jobs:
             .pio/build/${{ matrix.environment }}/firmware-merged.bin
             .pio/build/${{ matrix.environment }}/firmware.elf
             .pio/build/${{ matrix.environment }}/SHA256SUMS
+
+  required-room-server:
+    name: required-room-server
+    if: ${{ always() }}
+    needs: [static-contracts, firmware]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require contracts and every room-server image
+        env:
+          CONTRACT_RESULT: ${{ needs.static-contracts.result }}
+          FIRMWARE_RESULT: ${{ needs.firmware.result }}
+        run: |
+          test "$CONTRACT_RESULT" = success
+          test "$FIRMWARE_RESULT" = success
