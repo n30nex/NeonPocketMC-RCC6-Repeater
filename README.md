@@ -152,6 +152,7 @@ The **RCC6 Ultimate** phone/desktop dashboard includes:
 - RSSI, SNR, noise floor, radio state, last-packet age, TX budget, airtime totals, and rolling TX/RX channel-load graphs;
 - an offline mesh map of directly heard repeaters that advertise valid coordinates, plus an unlocated count and complete neighbor list—no guessed positions and no radio retuning;
 - recent-neighbour name, key prefix, age, advert age, SNR, and advertised coordinates where available;
+- an explicit **Advert location** privacy control beside the saved latitude/longitude. Select **Share saved coordinates** if this node should publish them; upgraded nodes that were previously set to **Do not share** remain private until you change it;
 - battery voltage, heap/free-block history, packet-pool headroom, CPU speed, and queue pressure;
 - Wi-Fi RSSI/channel/IP plus per-broker connection state, publish successes/errors, and filters;
 - rolling packet, RF, airtime, queue, memory, battery, Wi-Fi, operational-load, and per-broker success/error graphs;

@@ -18,7 +18,7 @@
 // separately, see wcIsAdminPasswordKey below.
 static const char* const WC_ALLOWED_SET_KEYS[] = {
   // NodePrefs (radio / node)
-  "name", "lat", "lon", "radio", "tx", "af", "rxdelay", "txdelay",
+  "name", "lat", "lon", "gps.adv_loc", "radio", "tx", "af", "rxdelay", "txdelay",
   "cad", "radio.rxgain", "repeat", "advert.interval", "flood.advert.interval",
   "flood.max", "flood.max.advert", "flood.max.unscoped", "loop.detect", "path.hash.mode",
   // MQTTPrefs (WiFi / MQTT / misc observer)
@@ -53,6 +53,21 @@ static inline bool wcIsAllowedSetKey(const char* key) {
     }
   }
   return false;
+}
+
+// MeshCore stores advert location policy as 0=none, 1=live GPS, 2=saved
+// coordinates. The generic config serializer accepts any integer, so the web
+// boundary must keep crafted requests inside that enum.
+static inline const char* wcAdvertLocationMode(const char* value) {
+  if (value == NULL || value[1] != 0) return NULL;
+  if (value[0] == '0') return "none";
+  if (value[0] == '1') return "share";
+  if (value[0] == '2') return "prefs";
+  return NULL;
+}
+
+static inline bool wcIsValidAdvertLocationPolicy(const char* value) {
+  return wcAdvertLocationMode(value) != NULL;
 }
 
 // The admin password maps to the top-level `password` command, not a setter, so
