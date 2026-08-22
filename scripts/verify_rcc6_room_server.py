@@ -99,7 +99,13 @@ def main() -> None:
             "Post deliveries", "room_active_clients", "room_pushes", "Build profile",
             "What this RCC6 can hear", "Signal view", "drawNeighborMap",
             "renderTrafficMix", "drawSignalBars", "renderFreshBars",
-            "/api/neighbors", "No advertised repeater locations yet")
+            "/api/neighbors", "No advertised repeater locations yet",
+            'data-k="gps.adv_loc"', "Share saved coordinates")
+    web_server = read("src/helpers/esp32/WebConfigServer.cpp")
+    web_keys = read("src/helpers/WebConfigKeys.h")
+    require(web_server, 'radio["advert_loc_policy"]', "wcIsValidAdvertLocationPolicy",
+            '"gps advert %s"')
+    require(web_keys, '"gps.adv_loc"', "wcIsValidAdvertLocationPolicy")
     require(mesh_h, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
     require(mesh_cpp, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
     for unsafe_route in ('/api/room/post', '/api/room/delete', '/api/room/client'):

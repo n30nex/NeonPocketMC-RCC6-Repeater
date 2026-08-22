@@ -104,6 +104,7 @@ def default_config(setup_mode):
             "repeat": True, "flood_max": 64, "flood_max_advert": 8,
             "flood_max_unscoped": 8, "loop_detect": "moderate", "path_hash_mode": 2,
             "name": "MockNode", "lat": 39.7392, "lon": -104.9903,
+            "advert_loc_policy": 2,
             "advert_interval": 240, "flood_advert_interval": 6,
         },
         "wifi": {
@@ -209,6 +210,7 @@ INT_KEYS = {"tx": ("radio", "tx"), "flood.max": ("radio", "flood_max"),
             "flood.max.advert": ("radio", "flood_max_advert"),
             "flood.max.unscoped": ("radio", "flood_max_unscoped"),
             "path.hash.mode": ("radio", "path_hash_mode"),
+            "gps.adv_loc": ("radio", "advert_loc_policy"),
             "advert.interval": ("radio", "advert_interval"),
             "flood.advert.interval": ("radio", "flood_advert_interval"),
             "mqtt.interval": ("mqtt", "interval"),
@@ -286,6 +288,9 @@ def apply_set(cfg, key, val):
             return False, "Error, invalid radio params"
         cfg["radio"].update(freq=f, bw=bw, sf=sf, cr=cr)
         return True, "OK - reboot to apply"
+
+    if key == "gps.adv_loc" and val not in ("0", "1", "2"):
+        return False, "Error: advert location must be 0, 1, or 2"
 
     if key == "mqtt.iata":
         if val == "":

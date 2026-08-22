@@ -725,6 +725,7 @@ void WebConfigServer::handleConfigGet(AsyncWebServerRequest* req) {
     radio["name"] = (const char*)_prefs->node_name;
     radio["lat"] = _prefs->node_lat;
     radio["lon"] = _prefs->node_lon;
+    radio["advert_loc_policy"] = _prefs->advert_loc_policy;
     radio["advert_interval"] = _prefs->advert_interval * 2;      // stored as mins/2
     radio["flood_advert_interval"] = _prefs->flood_advert_interval;  // hours
 
@@ -879,6 +880,10 @@ void WebConfigServer::handleConfigPost(AsyncWebServerRequest* req) {
                 "{\"error\":\"admin password must be 1-15 characters with no line breaks\"}");
       return;
     }
+    if (strcmp(key, "gps.adv_loc") == 0 && !wcIsValidAdvertLocationPolicy(val)) {
+      req->send(400, "application/json", "{\"error\":\"advert location must be none, live GPS, or saved coordinates\",\"key\":\"gps.adv_loc\"}");
+      return;
+    }
     if (isSecretKey(key) && strcmp(val, SECRET_SENTINEL) == 0) continue;  // unchanged
     if (count >= MAX_BATCH) {
       req->send(400, "application/json", "{\"error\":\"too many changes\"}");
@@ -890,8 +895,15 @@ void WebConfigServer::handleConfigPost(AsyncWebServerRequest* req) {
     // Build the allowlisted CLI command, stripping CR/LF from the value so it
     // can't smuggle in a second command. The admin password reuses the existing
     // top-level `password` command, so it persists exactly as the CLI does.
-    int pos = admin_pwd ? snprintf(e.cmd, sizeof(e.cmd), "password ")
-                        : snprintf(e.cmd, sizeof(e.cmd), "set %s ", key);
+    int pos;
+    if (admin_pwd) {
+      pos = snprintf(e.cmd, sizeof(e.cmd), "password ");
+    } else if (strcmp(key, "gps.adv_loc") == 0) {
+      pos = snprintf(e.cmd, sizeof(e.cmd), "gps advert %s", wcAdvertLocationMode(val));
+      val = "";  // the translated command is already complete
+    } else {
+      pos = snprintf(e.cmd, sizeof(e.cmd), "set %s ", key);
+    }
     bool overflow = false;
     for (const char* p = val; *p; p++) {
       if (*p == '\r' || *p == '\n') continue;

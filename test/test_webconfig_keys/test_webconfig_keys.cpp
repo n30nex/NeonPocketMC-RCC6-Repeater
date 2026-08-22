@@ -8,6 +8,7 @@
 
 TEST(WebConfigKeys, AllowsKnownScalarKeys) {
   EXPECT_TRUE(wcIsAllowedSetKey("name"));
+  EXPECT_TRUE(wcIsAllowedSetKey("gps.adv_loc"));
   EXPECT_TRUE(wcIsAllowedSetKey("radio"));
   EXPECT_TRUE(wcIsAllowedSetKey("repeat"));
   EXPECT_TRUE(wcIsAllowedSetKey("path.hash.mode"));
@@ -17,6 +18,20 @@ TEST(WebConfigKeys, AllowsKnownScalarKeys) {
   EXPECT_TRUE(wcIsAllowedSetKey("mqtt.neighbors.interval"));
   EXPECT_TRUE(wcIsAllowedSetKey("snmp.community"));
   EXPECT_TRUE(wcIsAllowedSetKey("timezone.offset"));
+}
+
+TEST(WebConfigKeys, ValidatesAdvertLocationPolicyEnum) {
+  EXPECT_TRUE(wcIsValidAdvertLocationPolicy("0"));
+  EXPECT_TRUE(wcIsValidAdvertLocationPolicy("1"));
+  EXPECT_TRUE(wcIsValidAdvertLocationPolicy("2"));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy(NULL));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy(""));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy("3"));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy("02"));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy("prefs"));
+  EXPECT_STREQ(wcAdvertLocationMode("0"), "none");
+  EXPECT_STREQ(wcAdvertLocationMode("1"), "share");
+  EXPECT_STREQ(wcAdvertLocationMode("2"), "prefs");
 }
 
 TEST(WebConfigKeys, AllowsPerSlotKeys) {

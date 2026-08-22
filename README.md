@@ -54,7 +54,7 @@ The USB configurator accepts only the two full Room Server profiles (and the exi
 
 ## What each role does
 
-- **RCC6 Ultimate observer/repeater:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the full Ultimate dashboard. The human-first analytics and Nearby overhaul ships as `v1.3.0-rc.1`; prior server/repeater releases remain available.
+- **RCC6 Ultimate observer/repeater:** forwards mesh traffic, observes packets, joins 2.4 GHz Wi-Fi, publishes to at most two MQTT brokers, and serves the full Ultimate dashboard. The human-first analytics and Nearby overhaul arrived in RC1; current `v1.3.0-rc.2` adds explicit saved-location advert sharing. Prior server/repeater releases remain available.
 - **Room Server, both sizes:** hosts the standard MeshCore room/client protocol with 32 recent posts held in RAM. A reboot clears those buffered posts. Repeating is optional but defaults off; a separate repeater is recommended.
 - **Room Server, minimal:** LoRa room service and USB CLI only. It has no Wi-Fi, Web dashboard, or MQTT code to configure.
 - **Room Server, full:** adds 2.4 GHz AP/STA onboarding, the authenticated dashboard, and one-way MQTT observation. MQTT data is never injected into RF.
@@ -65,15 +65,15 @@ All roles use fail-closed MeshCore storage and default their own adverts to **3-
 
 | Image | Setup after flashing |
 |---|---|
-| Ultimate repeater/observer `v1.3.0-rc.1` | Supplied Windows/Linux network wizard |
-| Ultimate Room Server full headless or full TFT | `v1.3.0-rc.1` network wizard; it also changes both room passwords |
+| Ultimate repeater/observer `v1.3.0-rc.2` | Supplied Windows/Linux network wizard |
+| Ultimate Room Server full headless or full TFT | `v1.3.0-rc.2` network wizard; it also changes both room passwords |
 | Room Server minimal headless or minimal TFT | USB serial CLI or the generic MeshCore USB configurator; no network wizard |
 
 Always attach a tuned LoRa antenna before powering or transmitting. Flash the selected application image at `0x10000`, leave USB connected, and do not deploy until the radio settings and passwords have been changed.
 
 ### Guided setup for observer and full profiles
 
-Download `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.1-configurator.zip` from the same release as the selected firmware.
+Download `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.2-configurator.zip` from the same release as the selected firmware.
 
 - **Windows:** double-click `Configure-RCC6-Windows.cmd`.
 - **Linux:** open the extracted folder in a terminal and run `sh configure-rcc6-linux.sh`.
@@ -152,6 +152,7 @@ The **RCC6 Ultimate** phone/desktop dashboard includes:
 - RSSI, SNR, noise floor, radio state, last-packet age, TX budget, airtime totals, and rolling TX/RX channel-load graphs;
 - an offline mesh map of directly heard repeaters that advertise valid coordinates, plus an unlocated count and complete neighbor list—no guessed positions and no radio retuning;
 - recent-neighbour name, key prefix, age, advert age, SNR, and advertised coordinates where available;
+- an explicit **Advert location** privacy control beside the saved latitude/longitude. Select **Share saved coordinates** if this node should publish them; upgraded nodes that were previously set to **Do not share** remain private until you change it;
 - battery voltage, heap/free-block history, packet-pool headroom, CPU speed, and queue pressure;
 - Wi-Fi RSSI/channel/IP plus per-broker connection state, publish successes/errors, and filters;
 - rolling packet, RF, airtime, queue, memory, battery, Wi-Fi, operational-load, and per-broker success/error graphs;
@@ -263,18 +264,18 @@ Install [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/
 
 The current RCC6 Ultimate server release files are:
 
-- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-app.bin`
-- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin`
-- `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.1-configurator.zip`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.2-app.bin`
+- `NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin`
+- `NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.2-configurator.zip`
 
-Room Server `v1.3.0-rc.1` uses these profile-specific names:
+Room Server `v1.3.0-rc.2` uses these profile-specific names:
 
 | Profile | Application update | Recovery image |
 |---|---|---|
-| Minimal headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Minimal TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
-| Full TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.1-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.1-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.2-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-headless-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin` |
+| Minimal TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.2-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-minimal-tft-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin` |
+| Full headless | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.2-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-headless-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin` |
+| Full TFT | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.2-app.bin` | `NeonPocketMC-RCC6-Ultimate-Room-Server-full-tft-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin` |
 
 Do not substitute a similarly named observer, profile, or development artifact.
 
