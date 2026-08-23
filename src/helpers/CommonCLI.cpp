@@ -94,12 +94,10 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     is_fresh_install = true;
     _prefs->bridge_pkt_src = 1;  // Default to RX (logRx) for new installs
   }
-#if ENV_INCLUDE_GPS != 1
-  if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE) {
+  if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE && _sensors->getLocationProvider() == NULL) {
     _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
     normalized_advert_location = true;
   }
-#endif
 #ifdef WITH_MQTT_BRIDGE
   // Load observer preferences (MQTT/WiFi/timezone/SNMP/alert) from /mqtt_prefs.
   // Readers (MQTTBridge, AlertReporter, observer CLI) use _mqtt_prefs directly —
@@ -1014,11 +1012,15 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
       savePrefs();
       strcpy(reply, "ok");
-#if ENV_INCLUDE_GPS == 1
     } else if (strcmp(command, "gps advert share") == 0) {
-      _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
-      savePrefs();
-      strcpy(reply, "ok");
+      if (_sensors->getLocationProvider() != NULL) {
+        _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "gps provider not found");
+      }
+#if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
       if (_sensors->setSettingValue("gps", "1")) {
         _prefs->gps_enabled = 1;

@@ -90,14 +90,16 @@ def main() -> None:
             "NEONPOCKET_ROOM_SERVER_PROFILE", "get room.profile", "chooseReplyScope",
             "isFloodHopLimitExceeded")
     require(routing, "chooseReplyRoute", "chooseReplyScope", "isFloodHopLimitExceeded")
-    if common_cli.index('strcmp(command, "gps advert prefs")') > \
-            common_cli.index("#if ENV_INCLUDE_GPS == 1"):
+    share_command = common_cli.index('strcmp(command, "gps advert share")')
+    gps_hardware_guard = common_cli.index("#if ENV_INCLUDE_GPS == 1", share_command)
+    if common_cli.index('strcmp(command, "gps advert prefs")') > share_command:
         raise AssertionError("saved-coordinate advert policy must not require physical GPS hardware")
-    if common_cli.index('strcmp(command, "gps advert share")') < \
-            common_cli.index("#if ENV_INCLUDE_GPS == 1"):
-        raise AssertionError("live-location advert policy must require physical GPS hardware")
+    if "_sensors->getLocationProvider() != NULL" not in \
+            common_cli[share_command:gps_hardware_guard]:
+        raise AssertionError("live-location advert policy must require an actual GPS provider")
     require(common_cli, "normalized_advert_location",
-            "_prefs->advert_loc_policy = ADVERT_LOC_PREFS;")
+            "_prefs->advert_loc_policy = ADVERT_LOC_PREFS;",
+            "_sensors->getLocationProvider() == NULL")
 
     display_h = read("src/helpers/ui/NV3001BDisplay.h")
     display_cpp = read("src/helpers/ui/NV3001BDisplay.cpp")
