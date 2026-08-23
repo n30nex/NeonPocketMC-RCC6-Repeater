@@ -71,6 +71,12 @@ static const char* wcCliUnavailable(const char* cmd) {
   if (strcmp(cmd, "get acl") == 0) {
     return "get acl writes to the serial console, not here.";
   }
+  if (strcmp(cmd, "gps on") == 0 || strcmp(cmd, "gps off") == 0 ||
+      strcmp(cmd, "gps sync") == 0 || strcmp(cmd, "gps setloc") == 0 ||
+      strcmp(cmd, "gps advert share") == 0) {
+    return "This RCC6 build has no live GPS provider. Use saved latitude/longitude "
+           "with `gps advert prefs` instead.";
+  }
   return NULL;
 }
 // The `password` command echoes the new password back in its reply, and replies
@@ -881,7 +887,7 @@ void WebConfigServer::handleConfigPost(AsyncWebServerRequest* req) {
       return;
     }
     if (strcmp(key, "gps.adv_loc") == 0 && !wcIsValidAdvertLocationPolicy(val)) {
-      req->send(400, "application/json", "{\"error\":\"advert location must be none, live GPS, or saved coordinates\",\"key\":\"gps.adv_loc\"}");
+      req->send(400, "application/json", "{\"error\":\"advert location must be none or saved coordinates on RCC6\",\"key\":\"gps.adv_loc\"}");
       return;
     }
     if (isSecretKey(key) && strcmp(val, SECRET_SENTINEL) == 0) continue;  // unchanged

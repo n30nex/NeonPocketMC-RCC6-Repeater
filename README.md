@@ -11,7 +11,7 @@ MeshCore repeater and room-server firmware for the **Heltec RadioCore RCC6-L62 /
 
 **Guided install:** [flasher.canadaverse.org](https://flasher.canadaverse.org/)
 
-This project uses the official MeshCore 1.17.0 baseline, the post-release SX126x boosted-RX-gain persistence fix intended for the next receiver maintenance release, and the production MQTT observer base plus reviewed memory, reconnect, retry, and packet-path fixes from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/8d1a0eb3). There is no official upstream MeshCore 1.17.1 tag at the time of this release.
+This project is synchronized with the target-relevant MeshCore 1.17.1 maintenance fixes, including SX126x boosted-RX-gain persistence and corrected server reply routing, plus the production MQTT observer base and reviewed memory, reconnect, retry, and packet-path fixes from [`agessaman/MeshCore`](https://github.com/agessaman/MeshCore/tree/8d1a0eb3).
 
 ## Choose the firmware profile
 
@@ -295,7 +295,7 @@ Do not erase the whole flash if you want to retain identity and settings. Never 
 
 ## Source and scope
 
-- MeshCore base: 1.17.0.
+- MeshCore target baseline: 1.17.1.
 - MQTT observer base: `agessaman/MeshCore` `observer-firmware` at `b744b42a`, plus selected reviewed stability fixes through `8d1a0eb3`.
 - RCC6 hardware mapping provenance: the separately tested `NeonPocketMC-RCC6` companion project.
 - Release targets: the established `heltec_rcc6_repeater_observer_mqtt` plus all four explicit Room Server profiles listed above.

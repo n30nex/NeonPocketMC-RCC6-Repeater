@@ -358,10 +358,10 @@ uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
 
 bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
-  if (packet->isRouteFlood()) {
-    if (packet->getPathHashCount() >= _prefs.flood_max) return false;
-    if (packet->getRouteType() == ROUTE_TYPE_FLOOD && packet->getPathHashCount() >= _prefs.flood_max_unscoped) return false;
-    if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->getPathHashCount() >= _prefs.flood_max_advert) return false;
+  if (packet->isRouteFlood()
+      && mesh::isFloodHopLimitExceeded(packet, _prefs.flood_max, _prefs.flood_max_unscoped,
+                                       _prefs.flood_max_advert)) {
+    return false;
   }
   return true;
 }
@@ -1072,15 +1072,21 @@ bool MyMesh::resolveAlertScope(TransportKey& dest) {
 }
 
 void MyMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_millis, uint8_t path_hash_size) {
-  if (recv_pkt_region && !recv_pkt_region->isWildcard()) {  // if _request_ packet scope is known, send reply with same scope
-    TransportKey scope;
-    if (region_map.getTransportKeysFor(*recv_pkt_region, &scope, 1) > 0) {
-      sendFloodScoped(scope, packet, delay_millis, path_hash_size);
-    } else {
-      sendFlood(packet, delay_millis, path_hash_size);   // send un-scoped
-    }
-  } else {
-    sendFlood(packet, delay_millis, path_hash_size);   // send un-scoped
+  TransportKey request_scope;
+  const bool request_was_unscoped = recv_pkt_region != NULL && recv_pkt_region->isWildcard();
+  const bool request_scope_known = recv_pkt_region != NULL && !request_was_unscoped
+      && region_map.getTransportKeysFor(*recv_pkt_region, &request_scope, 1) > 0;
+
+  switch (mesh::chooseReplyScope(request_scope_known, request_was_unscoped, !default_scope.isNull())) {
+    case mesh::REPLY_SCOPE_REQUEST:
+      sendFloodScoped(request_scope, packet, delay_millis, path_hash_size);
+      break;
+    case mesh::REPLY_SCOPE_DEFAULT:
+      sendFloodScoped(default_scope, packet, delay_millis, path_hash_size);
+      break;
+    case mesh::REPLY_SCOPE_NONE:
+      sendFlood(packet, delay_millis, path_hash_size);
+      break;
   }
 }
 

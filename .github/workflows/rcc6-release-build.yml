@@ -115,7 +115,7 @@ jobs:
           build_info = (
               "Git commit: ${{ github.event.pull_request.head.sha || github.sha }}\n"
               "Target: heltec_rcc6_repeater_observer_mqtt\n"
-              "MeshCore base: official v1.17.0 + post-release SX126x RX-gain fix\n"
+              "MeshCore target baseline: official v1.17.1\n"
               "Observer base: agessaman/MeshCore b744b42a plus reviewed stability fixes through 8d1a0eb3\n"
           )
           (out / "QUICK_START.txt").write_text(quick_start, encoding="utf-8")

@@ -67,7 +67,9 @@ static inline const char* wcAdvertLocationMode(const char* value) {
 }
 
 static inline bool wcIsValidAdvertLocationPolicy(const char* value) {
-  return wcAdvertLocationMode(value) != NULL;
+  // RCC6 has no compiled location provider. It can advertise fixed coordinates
+  // from preferences, but must not offer the live-GPS policy as if it worked.
+  return value != NULL && value[1] == 0 && (value[0] == '0' || value[0] == '2');
 }
 
 // The admin password maps to the top-level `password` command, not a setter, so

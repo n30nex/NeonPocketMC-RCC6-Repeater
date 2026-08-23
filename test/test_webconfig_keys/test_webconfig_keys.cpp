@@ -22,7 +22,7 @@ TEST(WebConfigKeys, AllowsKnownScalarKeys) {
 
 TEST(WebConfigKeys, ValidatesAdvertLocationPolicyEnum) {
   EXPECT_TRUE(wcIsValidAdvertLocationPolicy("0"));
-  EXPECT_TRUE(wcIsValidAdvertLocationPolicy("1"));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicy("1"));
   EXPECT_TRUE(wcIsValidAdvertLocationPolicy("2"));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy(NULL));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy(""));
