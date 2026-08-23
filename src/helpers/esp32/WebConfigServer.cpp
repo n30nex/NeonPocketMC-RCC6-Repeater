@@ -71,12 +71,14 @@ static const char* wcCliUnavailable(const char* cmd) {
   if (strcmp(cmd, "get acl") == 0) {
     return "get acl writes to the serial console, not here.";
   }
+#if ENV_INCLUDE_GPS != 1
   if (strcmp(cmd, "gps on") == 0 || strcmp(cmd, "gps off") == 0 ||
       strcmp(cmd, "gps sync") == 0 || strcmp(cmd, "gps setloc") == 0 ||
       strcmp(cmd, "gps advert share") == 0) {
-    return "This RCC6 build has no live GPS provider. Use saved latitude/longitude "
+    return "This build has no live GPS provider. Use saved latitude/longitude "
            "with `gps advert prefs` instead.";
   }
+#endif
   return NULL;
 }
 // The `password` command echoes the new password back in its reply, and replies

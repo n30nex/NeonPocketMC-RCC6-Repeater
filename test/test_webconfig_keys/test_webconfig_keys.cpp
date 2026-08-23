@@ -24,6 +24,8 @@ TEST(WebConfigKeys, ValidatesAdvertLocationPolicyEnum) {
   EXPECT_TRUE(wcIsValidAdvertLocationPolicy("0"));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy("1"));
   EXPECT_TRUE(wcIsValidAdvertLocationPolicy("2"));
+  EXPECT_TRUE(wcIsValidAdvertLocationPolicyForBuild("1", true));
+  EXPECT_FALSE(wcIsValidAdvertLocationPolicyForBuild("1", false));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy(NULL));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy(""));
   EXPECT_FALSE(wcIsValidAdvertLocationPolicy("3"));

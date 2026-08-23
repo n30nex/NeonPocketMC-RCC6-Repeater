@@ -93,6 +93,9 @@ def main() -> None:
     if common_cli.index('strcmp(command, "gps advert prefs")') > \
             common_cli.index("#if ENV_INCLUDE_GPS == 1"):
         raise AssertionError("saved-coordinate advert policy must not require physical GPS hardware")
+    if common_cli.index('strcmp(command, "gps advert share")') < \
+            common_cli.index("#if ENV_INCLUDE_GPS == 1"):
+        raise AssertionError("live-location advert policy must require physical GPS hardware")
 
     display_h = read("src/helpers/ui/NV3001BDisplay.h")
     display_cpp = read("src/helpers/ui/NV3001BDisplay.cpp")

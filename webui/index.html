@@ -406,8 +406,8 @@ body.tab-cli{padding-bottom:0}
         <div class="f"><label>Longitude</label><input type="number" data-k="lon" step="any"></div>
       </div>
       <div class="f"><label>Advert location</label>
-        <select data-k="gps.adv_loc"><option value="2">Share saved coordinates</option><option value="0">Do not share a location</option></select>
-        <div class="hint">RCC6 has no live GPS provider. Saved coordinates are included only when sharing is enabled.</div>
+        <select data-k="gps.adv_loc"><option value="2">Share saved coordinates</option><option value="0">Do not share a location</option><option value="1">Share live GPS (supported hardware only)</option></select>
+        <div class="hint">Saved coordinates work on every build. Live GPS is accepted only on hardware with a compiled GPS provider.</div>
       </div>
     </div>
     <div class="card">
@@ -1758,7 +1758,12 @@ var CLI_VERBS=[
   ["sensor list","List attached sensors"],
   ["sensor get ","Read one sensor {index}"],
   ["sensor set ","Write one sensor {index} {value}"],
+  ["gps on","Power up the GPS"],
+  ["gps off","Power down the GPS"],
+  ["gps sync","Set the clock and location from the GPS"],
+  ["gps setloc","Copy the current GPS fix into lat/lon"],
   ["gps advert none","Do not include GPS position in adverts"],
+  ["gps advert share","Advertise the live GPS position"],
   ["gps advert prefs","Advertise the stored lat/lon"],
   ["powersaving","Show the power-saving mode"],
   ["powersaving on","Enable power saving"],

@@ -82,11 +82,6 @@ NOT_OFFERED = {
     "clock sync",      # takes its time from the caller; a web request has none
     "log",             # streams to Serial and stalls the radio ("log start" is offered)
     "get acl",         # streams to Serial, returns nothing
-    "gps on",          # RCC6 has no live GPS provider
-    "gps off",
-    "gps sync",
-    "gps setloc",
-    "gps advert share",
 }
 
 
