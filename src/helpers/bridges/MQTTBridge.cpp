@@ -2487,7 +2487,10 @@ void MQTTBridge::publishStatusToSlot(int index) {
   int packets_sent = -1;
   int packets_received = -1;
 
-  if (_board) battery_mv = _board->getBattMilliVolts();
+  if (_board) {
+    const uint16_t measured = _board->getBattMilliVolts();
+    if (measured) battery_mv = measured;
+  }
   if (_ms) uptime_secs = _ms->getMillis() / 1000;
   if (_dispatcher) {
     errors = _dispatcher->getErrFlags();
@@ -3365,7 +3368,10 @@ bool MQTTBridge::publishStatus() {
   int packets_sent = -1;
   int packets_received = -1;
 
-  if (_board) battery_mv = _board->getBattMilliVolts();
+  if (_board) {
+    const uint16_t measured = _board->getBattMilliVolts();
+    if (measured) battery_mv = measured;
+  }
   if (_ms) uptime_secs = _ms->getMillis() / 1000;
   if (_dispatcher) {
     errors = _dispatcher->getErrFlags();

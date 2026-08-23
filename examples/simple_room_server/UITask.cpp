@@ -105,6 +105,8 @@ void UITask::renderCurrScreen() {
   if (room.batt_mv != 0) {
     if (!_battery_low && room.batt_mv <= ROOM_LOW_BATTERY_MV) _battery_low = true;
     else if (_battery_low && room.batt_mv >= ROOM_LOW_BATTERY_CLEAR_MV) _battery_low = false;
+  } else {
+    _battery_low = false;
   }
   char value[48];
 
@@ -144,9 +146,14 @@ void UITask::renderCurrScreen() {
   _display->print(value);
 
   _display->setCursor(3, 86);
-  snprintf(value, sizeof(value), "TXQ %u ERR %04X BAT %.2fV%s",
-           (unsigned)room.tx_queue, (unsigned)room.error_flags,
-           room.batt_mv / 1000.0f, _battery_low ? " LOW" : "");
+  if (room.batt_mv) {
+    snprintf(value, sizeof(value), "TXQ %u ERR %04X BAT %.2fV%s",
+             (unsigned)room.tx_queue, (unsigned)room.error_flags,
+             room.batt_mv / 1000.0f, _battery_low ? " LOW" : "");
+  } else {
+    snprintf(value, sizeof(value), "TXQ %u ERR %04X BAT --",
+             (unsigned)room.tx_queue, (unsigned)room.error_flags);
+  }
   _display->setColor(room.error_flags || _battery_low ? UIColor::warning_txt
                                                       : UIColor::primary_txt);
   _display->print(value);

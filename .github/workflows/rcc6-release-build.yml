@@ -85,9 +85,9 @@ jobs:
 
           out = Path("release")
           out.mkdir()
-          app_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.2-app.bin"
-          recovery_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.2-full-recovery-preserves-meshcore-settings.bin"
-          configurator_name = "NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.2-configurator.zip"
+          app_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.3-app.bin"
+          recovery_name = "NeonPocketMC-RCC6-Ultimate-Observer-v1.3.0-rc.3-full-recovery-preserves-meshcore-settings.bin"
+          configurator_name = "NeonPocketMC-RCC6-Ultimate-Server-v1.3.0-rc.3-configurator.zip"
           (out / app_name).write_bytes(app)
           (out / recovery_name).write_bytes(merged)
 
