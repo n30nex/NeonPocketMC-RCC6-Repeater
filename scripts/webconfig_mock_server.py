@@ -289,8 +289,8 @@ def apply_set(cfg, key, val):
         cfg["radio"].update(freq=f, bw=bw, sf=sf, cr=cr)
         return True, "OK - reboot to apply"
 
-    if key == "gps.adv_loc" and val not in ("0", "1", "2"):
-        return False, "Error: advert location must be 0, 1, or 2"
+    if key == "gps.adv_loc" and val not in ("0", "2"):
+        return False, "Error: advert location must be 0 or 2 on RCC6"
 
     if key == "mqtt.iata":
         if val == "":
@@ -461,6 +461,11 @@ CLI_UNAVAILABLE = [
     ("log", False, "log writes the packet log to the serial console, not here, and "
                    "blocks the radio while it does. Use `log start` / `log stop`."),
     ("get acl", False, "get acl writes to the serial console, not here."),
+    ("gps on", False, "This RCC6 build has no live GPS provider."),
+    ("gps off", False, "This RCC6 build has no live GPS provider."),
+    ("gps sync", False, "This RCC6 build has no live GPS provider."),
+    ("gps setloc", False, "This RCC6 build has no live GPS provider."),
+    ("gps advert share", False, "This RCC6 build has no live GPS provider."),
 ]
 
 

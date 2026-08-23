@@ -66,8 +66,17 @@ static inline const char* wcAdvertLocationMode(const char* value) {
   return NULL;
 }
 
+static inline bool wcIsValidAdvertLocationPolicyForBuild(const char* value, bool has_live_gps) {
+  const char* mode = wcAdvertLocationMode(value);
+  return mode != NULL && (value[0] != '1' || has_live_gps);
+}
+
 static inline bool wcIsValidAdvertLocationPolicy(const char* value) {
-  return wcAdvertLocationMode(value) != NULL;
+#if ENV_INCLUDE_GPS == 1
+  return wcIsValidAdvertLocationPolicyForBuild(value, true);
+#else
+  return wcIsValidAdvertLocationPolicyForBuild(value, false);
+#endif
 }
 
 // The admin password maps to the top-level `password` command, not a setter, so

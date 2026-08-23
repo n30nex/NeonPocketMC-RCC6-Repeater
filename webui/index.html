@@ -406,8 +406,8 @@ body.tab-cli{padding-bottom:0}
         <div class="f"><label>Longitude</label><input type="number" data-k="lon" step="any"></div>
       </div>
       <div class="f"><label>Advert location</label>
-        <select data-k="gps.adv_loc"><option value="2">Share saved coordinates</option><option value="0">Do not share a location</option><option value="1">Share live GPS (external GPS only)</option></select>
-        <div class="hint">Coordinates are included in adverts only when sharing is enabled.</div>
+        <select data-k="gps.adv_loc"><option value="2">Share saved coordinates</option><option value="0">Do not share a location</option><option value="1">Share live GPS (supported hardware only)</option></select>
+        <div class="hint">Saved coordinates work on every build. Live GPS is accepted only on hardware with a compiled GPS provider.</div>
       </div>
     </div>
     <div class="card">

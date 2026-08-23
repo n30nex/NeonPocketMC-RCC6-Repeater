@@ -43,7 +43,7 @@ def main() -> None:
     full_tft = section(ini, expected_envs[3])
 
     require(common, "NEONPOCKET_RCC6_ROOM_SERVER=1", "NEONPOCKET_SAFE_SPIFFS_BOOTSTRAP=1",
-            "+<../examples/simple_room_server>")
+            "+<../examples/simple_room_server>", "FIRMWARE_VERSION='\"v1.17.1-")
     require(full, "WITH_MQTT_BRIDGE=1", "WEBCONFIG_AUTO_LAN=1",
             "MQTT_DEFAULT_SLOT1_PRESET", "MQTT_DEFAULT_SLOT2_PRESET",
             "+<helpers/bridges/MQTTBridge.cpp>")
@@ -82,10 +82,24 @@ def main() -> None:
 
     mesh_h = read("examples/simple_room_server/MyMesh.h")
     mesh_cpp = read("examples/simple_room_server/MyMesh.cpp")
+    common_cli = read("src/helpers/CommonCLI.cpp")
+    routing = read("src/helpers/RoutingPolicy.h")
     require(mesh_h, "struct RoomSnapshot", "void getRoomSnapshot",
-            "command requires USB serial or the room RF protocol")
+            "command requires USB serial or the room RF protocol", "helpers/RoutingPolicy.h")
     require(mesh_cpp, "room_active_clients", "room_posts", "room_pushes",
-            "NEONPOCKET_ROOM_SERVER_PROFILE", "get room.profile")
+            "NEONPOCKET_ROOM_SERVER_PROFILE", "get room.profile", "chooseReplyScope",
+            "isFloodHopLimitExceeded")
+    require(routing, "chooseReplyRoute", "chooseReplyScope", "isFloodHopLimitExceeded")
+    share_command = common_cli.index('strcmp(command, "gps advert share")')
+    gps_hardware_guard = common_cli.index("#if ENV_INCLUDE_GPS == 1", share_command)
+    if common_cli.index('strcmp(command, "gps advert prefs")') > share_command:
+        raise AssertionError("saved-coordinate advert policy must not require physical GPS hardware")
+    if "_sensors->getLocationProvider() != NULL" not in \
+            common_cli[share_command:gps_hardware_guard]:
+        raise AssertionError("live-location advert policy must require an actual GPS provider")
+    require(common_cli, "normalized_advert_location",
+            "_prefs->advert_loc_policy = ADVERT_LOC_PREFS;",
+            "_sensors->getLocationProvider() == NULL")
 
     display_h = read("src/helpers/ui/NV3001BDisplay.h")
     display_cpp = read("src/helpers/ui/NV3001BDisplay.cpp")
@@ -112,6 +126,7 @@ def main() -> None:
     require(mesh_h, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
     require(mesh_cpp, "buildNeighborsJson", "has_location", "latitude_e6", "longitude_e6")
     repeater_mesh = read("examples/simple_repeater/MyMesh.cpp")
+    require(repeater_mesh, "chooseReplyRoute", "chooseReplyScope", "isFloodHopLimitExceeded")
     require(mesh_cpp, "if (battery_mv) telemetry.addVoltage")
     require(repeater_mesh, "if (battery_mv) telemetry.addVoltage")
     mqtt = read("src/helpers/bridges/MQTTBridge.cpp")

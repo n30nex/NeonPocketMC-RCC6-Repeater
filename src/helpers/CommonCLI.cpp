@@ -64,6 +64,7 @@ static const size_t COM_PREFS_TAIL_BYTES = 5;
 void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   bool is_fresh_install = false;
   bool is_upgrade = false;
+  bool normalized_advert_location = false;
   // Set when prefs came from one of the legacy binary files; they are republished
   // as /prefs.json below. The legacy file is never removed, so it stays available
   // as a fallback if the JSON save does not commit this boot.
@@ -92,6 +93,10 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     // File doesn't exist - set default bridge settings for fresh installs
     is_fresh_install = true;
     _prefs->bridge_pkt_src = 1;  // Default to RX (logRx) for new installs
+  }
+  if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE && _sensors->getLocationProvider() == NULL) {
+    _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+    normalized_advert_location = true;
   }
 #ifdef WITH_MQTT_BRIDGE
   // Load observer preferences (MQTT/WiFi/timezone/SNMP/alert) from /mqtt_prefs.
@@ -136,11 +141,15 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     } else {
       MESH_DEBUG_PRINTLN("Prefs: deferring /prefs.json migration until /mqtt_prefs commits");
     }
+  } else if (normalized_advert_location) {
+    savePrefs(fs, false);
   }
 #else
   if (loaded_from_legacy || _com_prefs_needs_upgrade) {
     savePrefs(fs);
     _com_prefs_needs_upgrade = false;
+  } else if (normalized_advert_location) {
+    savePrefs(fs);
   }
 #endif
 }
@@ -981,6 +990,36 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       }
     } else if (memcmp(command, "region", 6) == 0) {
       handleRegionCmd(command, reply);
+    } else if (strcmp(command, "gps advert") == 0) {
+      switch (_prefs->advert_loc_policy) {
+        case ADVERT_LOC_NONE:
+          strcpy(reply, "> none");
+          break;
+        case ADVERT_LOC_PREFS:
+          strcpy(reply, "> prefs");
+          break;
+        case ADVERT_LOC_SHARE:
+          strcpy(reply, "> share");
+          break;
+        default:
+          strcpy(reply, "error");
+      }
+    } else if (strcmp(command, "gps advert none") == 0) {
+      _prefs->advert_loc_policy = ADVERT_LOC_NONE;
+      savePrefs();
+      strcpy(reply, "ok");
+    } else if (strcmp(command, "gps advert prefs") == 0) {
+      _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+      savePrefs();
+      strcpy(reply, "ok");
+    } else if (strcmp(command, "gps advert share") == 0) {
+      if (_sensors->getLocationProvider() != NULL) {
+        _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "gps provider not found");
+      }
 #if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
       if (_sensors->setSettingValue("gps", "1")) {
@@ -1011,36 +1050,6 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       _prefs->node_lon = _sensors->node_lon;
       savePrefs();
       strcpy(reply, "ok");
-    } else if (memcmp(command, "gps advert", 10) == 0) {
-      if (strlen(command) == 10) {
-        switch (_prefs->advert_loc_policy) {
-          case ADVERT_LOC_NONE:
-            strcpy(reply, "> none");
-            break;
-          case ADVERT_LOC_PREFS:
-            strcpy(reply, "> prefs");
-            break;
-          case ADVERT_LOC_SHARE:
-            strcpy(reply, "> share");
-            break;
-          default:
-            strcpy(reply, "error");
-        }
-      } else if (memcmp(command+11, "none", 4) == 0) {
-        _prefs->advert_loc_policy = ADVERT_LOC_NONE;
-        savePrefs();
-        strcpy(reply, "ok");
-      } else if (memcmp(command+11, "share", 5) == 0) {
-        _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
-        savePrefs();
-        strcpy(reply, "ok");
-      } else if (memcmp(command+11, "prefs", 5) == 0) {
-        _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
-        savePrefs();
-        strcpy(reply, "ok");
-      } else {
-        strcpy(reply, "error");
-      }
     } else if (memcmp(command, "gps", 3) == 0) {
       LocationProvider * l = _sensors->getLocationProvider();
       if (l != NULL) {
