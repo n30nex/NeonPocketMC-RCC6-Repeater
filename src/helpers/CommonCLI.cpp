@@ -64,6 +64,7 @@ static const size_t COM_PREFS_TAIL_BYTES = 5;
 void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   bool is_fresh_install = false;
   bool is_upgrade = false;
+  bool normalized_advert_location = false;
   // Set when prefs came from one of the legacy binary files; they are republished
   // as /prefs.json below. The legacy file is never removed, so it stays available
   // as a fallback if the JSON save does not commit this boot.
@@ -93,6 +94,12 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     is_fresh_install = true;
     _prefs->bridge_pkt_src = 1;  // Default to RX (logRx) for new installs
   }
+#if ENV_INCLUDE_GPS != 1
+  if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE) {
+    _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+    normalized_advert_location = true;
+  }
+#endif
 #ifdef WITH_MQTT_BRIDGE
   // Load observer preferences (MQTT/WiFi/timezone/SNMP/alert) from /mqtt_prefs.
   // Readers (MQTTBridge, AlertReporter, observer CLI) use _mqtt_prefs directly —
@@ -136,11 +143,15 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     } else {
       MESH_DEBUG_PRINTLN("Prefs: deferring /prefs.json migration until /mqtt_prefs commits");
     }
+  } else if (normalized_advert_location) {
+    savePrefs(fs, false);
   }
 #else
   if (loaded_from_legacy || _com_prefs_needs_upgrade) {
     savePrefs(fs);
     _com_prefs_needs_upgrade = false;
+  } else if (normalized_advert_location) {
+    savePrefs(fs);
   }
 #endif
 }

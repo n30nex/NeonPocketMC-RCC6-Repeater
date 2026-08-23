@@ -96,6 +96,8 @@ def main() -> None:
     if common_cli.index('strcmp(command, "gps advert share")') < \
             common_cli.index("#if ENV_INCLUDE_GPS == 1"):
         raise AssertionError("live-location advert policy must require physical GPS hardware")
+    require(common_cli, "normalized_advert_location",
+            "_prefs->advert_loc_policy = ADVERT_LOC_PREFS;")
 
     display_h = read("src/helpers/ui/NV3001BDisplay.h")
     display_cpp = read("src/helpers/ui/NV3001BDisplay.cpp")
